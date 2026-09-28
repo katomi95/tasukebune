@@ -1,0 +1,2385 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>助け舟</title>
+<meta name="description" content="巨大すぎる救助船で人々を救助する、善意100%・配慮0%の短編ブラウザゲーム。">
+<style>
+  :root {
+    --ink: #1b2a3a;
+    --paper: #fbf6ea;
+    --red: #d8412f;
+    --green: #2e9d5b;
+    --sea: #1f7fb8;
+    --font: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: #0b2233;
+    font-family: var(--font);
+    color: var(--ink);
+    overflow: hidden;
+    user-select: none;
+  }
+  #wrap {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 960px; height: 640px;
+    transform-origin: 0 0;
+  }
+  canvas { display: block; width: 960px; height: 640px; cursor: crosshair; }
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(8, 30, 48, 0.45);
+  }
+  .hidden { display: none !important; }
+  .panel {
+    background: var(--paper);
+    border: 4px solid var(--ink);
+    border-radius: 14px;
+    box-shadow: 8px 8px 0 rgba(0,0,0,0.35);
+    padding: 22px 30px;
+    max-width: 700px;
+    width: 90%;
+    text-align: center;
+  }
+  .kicker {
+    display: inline-block;
+    background: var(--red); color: #fff;
+    font-weight: 700; font-size: 14px;
+    padding: 4px 12px; border-radius: 99px;
+    letter-spacing: 0.08em;
+  }
+  h1 {
+    font-size: 96px; margin: 6px 0 0; line-height: 1.1;
+    letter-spacing: 0.12em;
+    color: var(--ink);
+    text-shadow: 4px 4px 0 #f2b33d;
+  }
+  .lead { font-size: 17px; line-height: 1.7; margin: 8px 0 14px; }
+  .controls {
+    display: grid; grid-template-columns: auto 1fr auto 1fr;
+    gap: 6px 12px; text-align: left; font-size: 14px;
+    background: #fff; border: 2px solid var(--ink); border-radius: 10px;
+    padding: 10px 14px; margin: 0 auto 14px; max-width: 560px;
+  }
+  .controls .k { font-weight: 700; white-space: nowrap; }
+  kbd {
+    display: inline-block; min-width: 22px; padding: 1px 6px;
+    border: 2px solid var(--ink); border-bottom-width: 3px; border-radius: 5px;
+    background: #fff; font-family: inherit; font-size: 12px; font-weight: 700;
+    text-align: center;
+  }
+  .btns { display: flex; gap: 12px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+  button {
+    font-family: inherit; font-size: 18px; font-weight: 700;
+    padding: 10px 26px; border-radius: 10px;
+    border: 3px solid var(--ink); background: #fff; color: var(--ink);
+    cursor: pointer; box-shadow: 4px 4px 0 var(--ink);
+    transition: transform 0.06s, box-shadow 0.06s;
+  }
+  button:hover { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 var(--ink); }
+  button:active { transform: translate(3px,3px); box-shadow: 1px 1px 0 var(--ink); }
+  button.primary { background: var(--red); color: #fff; }
+  button small { font-size: 12px; opacity: 0.8; margin-left: 4px; }
+  .best { margin-top: 10px; font-size: 13px; opacity: 0.75; min-height: 1em; }
+  .rules { text-align: left; font-size: 15px; line-height: 1.75; margin: 10px 0; padding-left: 1.3em; }
+  .rules b { color: var(--red); }
+  h2 { margin: 0 0 6px; font-size: 30px; }
+  .newspaper {
+    background: #fff; border: 2px solid var(--ink);
+    padding: 8px 12px; margin-bottom: 12px; text-align: left;
+  }
+  .np-head { font-size: 12px; font-weight: 700; border-bottom: 2px solid var(--ink); padding-bottom: 3px; margin-bottom: 5px; display: flex; justify-content: space-between; }
+  #headline { font-size: 19px; font-weight: 800; line-height: 1.45; }
+  .scores { display: flex; gap: 14px; justify-content: center; }
+  .score {
+    flex: 1; border: 3px solid var(--ink); border-radius: 10px; padding: 6px 10px;
+    font-size: 15px; font-weight: 700;
+  }
+  .score b { font-size: 44px; margin: 0 4px; font-variant-numeric: tabular-nums; }
+  .score.good { background: #dff3e6; color: #16623a; }
+  .score.bad { background: #fde2dc; color: #a3261a; }
+  .score span { display: block; font-size: 13px; }
+  .rank { margin-top: 12px; font-size: 14px; font-weight: 700; color: #6b5a3a; }
+  .comment { font-size: 26px; font-weight: 800; margin: 2px 0 8px; line-height: 1.4; }
+  #rBreakdown {
+    list-style: none; padding: 0; margin: 6px auto;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 2px 18px;
+    font-size: 13px; max-width: 520px; text-align: left;
+  }
+  #rBreakdown li { display: flex; justify-content: space-between; border-bottom: 1px dashed #bbb; }
+  .voices { font-size: 13px; line-height: 1.6; text-align: left; background: #f1ead7; border-radius: 8px; padding: 6px 12px; margin-top: 6px; }
+  .voices div::before { content: "「"; } .voices div::after { content: "」"; }
+  .voices div { text-indent: -0.5em; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <!-- タイトル -->
+  <div id="title" class="screen">
+    <div class="panel">
+      <div class="kicker">善意100%・配慮0%の海難救助訓練</div>
+      <h1>助け舟</h1>
+      <p class="lead">本日は港町の海難救助訓練。溺れ役の参加者を助けるだけの、平和な訓練のはずだった。<br>ところが手配ミスで、<b>想定の50倍の救助船</b>が来てしまった。</p>
+      <div class="controls">
+        <span class="k"><kbd>↑</kbd><kbd>↓</kbd> / <kbd>W</kbd><kbd>S</kbd></span><span>前進・後退</span>
+        <span class="k"><kbd>←</kbd><kbd>→</kbd> / <kbd>A</kbd><kbd>D</kbd></span><span>旋回</span>
+        <span class="k"><kbd>Space</kbd></span><span>ブレーキ</span>
+        <span class="k">マウス</span><span>ねらう</span>
+        <span class="k">左クリック / <kbd>Z</kbd></span><span>救助棒</span>
+        <span class="k">右クリック / <kbd>X</kbd></span><span>浮き輪</span>
+      </div>
+      <div class="btns">
+        <button id="btnStart" class="primary">出航する<small>Enter</small></button>
+        <button id="btnHow">あそびかた</button>
+      </div>
+      <div id="bestLine" class="best"></div>
+    </div>
+  </div>
+
+  <!-- あそびかた -->
+  <div id="howto" class="screen hidden">
+    <div class="panel">
+      <h2>あそびかた</h2>
+      <ul class="rules">
+        <li>これは<b>訓練</b>。制限時間 <b>90秒</b>で、溺れ役の参加者を<b>できるだけ多く救助</b>せよ。</li>
+        <li>ただし手配されたのは<b>超大型救助船</b>。訓練なので、誰も死なない（はず）。</li>
+        <li>船は<b>でかい</b>。慣性が強く、<b>すぐには止まれない</b>。</li>
+        <li>速く近づくと<b>波で人が流される</b>。ゆっくり寄れ。</li>
+        <li>その場に留まったり、ぐるぐる回ると<b>渦が出る</b>。手早く済ませろ。</li>
+        <li><b>救助棒</b>：速度が出ていると頭を小突く。<b>浮き輪</b>：船が動いていると狙いがズレる。</li>
+        <li>低速で船体をそっと当てると<b>直接すくい上げ</b>られる。</li>
+        <li><kbd>Z</kbd><kbd>X</kbd> は一番近い要救助者を大雑把に自動で狙う。<kbd>Esc</kbd> 一時停止、<kbd>M</kbd> 消音。</li>
+        <li>波・渦・衝突で周囲に迷惑をかけると<b>はた迷惑ポイント</b>が加算される。</li>
+      </ul>
+      <div class="btns">
+        <button id="btnStart2" class="primary">出航する<small>Enter</small></button>
+        <button id="btnBack">もどる<small>Esc</small></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 結果 -->
+  <div id="result" class="screen hidden">
+    <div class="panel">
+      <div class="newspaper">
+        <div class="np-head"><span>港町タイムス　号外</span><span id="npDate"></span></div>
+        <div id="headline"></div>
+      </div>
+      <div class="scores">
+        <div class="score good"><span>救助人数</span><b id="rCount">0</b>名</div>
+        <div class="score bad"><span>はた迷惑ポイント</span><b id="rMeiwaku">0</b></div>
+      </div>
+      <div id="rTitle" class="rank"></div>
+      <div id="rComment" class="comment"></div>
+      <ul id="rBreakdown"></ul>
+      <div id="rVoices" class="voices"></div>
+      <div class="btns">
+        <button id="btnRetry" class="primary">もう一回<small>R</small></button>
+        <button id="btnTitle">タイトルへ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* =========================================================
+   基本設定
+   ========================================================= */
+const W = 960, H = 640;
+const WORLD_W = 2400, WORLD_H = 1600;
+const GAME_TIME = 90;
+const MAX_SPEED = 250;
+const HULL_A = 152, HULL_B = 54;   // 船体の当たり判定（楕円の半径）
+const SCOOP_SPEED = 45;            // これ以下なら船体で優しく回収できる
+const FONT = '"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic","Meiryo",sans-serif';
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+canvas.width = W * DPR;
+canvas.height = H * DPR;
+
+const wrap = document.getElementById('wrap');
+function fit() {
+  const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  wrap.style.transform = `scale(${s}) translate(-50%, -50%)`;
+}
+window.addEventListener('resize', fit);
+fit();
+
+/* =========================================================
+   ユーティリティ
+   ========================================================= */
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// 岸辺のライン（これより左が砂浜）
+function shoreX(y) {
+  return 300 + 50 * Math.sin(y * 0.0035) + 22 * Math.sin(y * 0.013 + 1.3);
+}
+// 陸にいるものが波を受ける強さ（波打ち際ほど強い）
+function landFactor(x, y) {
+  const inland = shoreX(y) - x;
+  return clamp(1 - inland / 230, 0, 1);
+}
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const l2 = dx * dx + dy * dy || 1;
+  const t = clamp(((px - ax) * dx + (py - ay) * dy) / l2, 0, 1);
+  return dist(px, py, ax + dx * t, ay + dy * t);
+}
+
+/* =========================================================
+   サウンド（WebAudioで合成。外部ファイルなし）
+   ========================================================= */
+const Snd = {
+  ac: null, master: null, muted: false, last: {}, noiseBuf: null, eng: null,
+  init() {
+    if (this.ac) { if (this.ac.state === 'suspended') this.ac.resume(); return; }
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      this.ac = new AC();
+      this.master = this.ac.createGain();
+      this.master.gain.value = 0.45;
+      this.master.connect(this.ac.destination);
+      const len = this.ac.sampleRate * 2;
+      this.noiseBuf = this.ac.createBuffer(1, len, this.ac.sampleRate);
+      const d = this.noiseBuf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    } catch (e) { this.ac = null; }
+  },
+  ok(key, gap = 0.05) {
+    if (!this.ac || this.muted || (G && G.demo)) return false;
+    const t = this.ac.currentTime;
+    if (this.last[key] && t - this.last[key] < gap) return false;
+    this.last[key] = t;
+    return true;
+  },
+  tone(f, dur, type = 'sine', vol = 0.3, f2 = null, delay = 0) {
+    const ac = this.ac, t = ac.currentTime + delay;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f, t);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(this.master);
+    o.start(t); o.stop(t + dur + 0.05);
+  },
+  noise(dur, vol = 0.3, type = 'lowpass', f = 800, f2 = null, delay = 0) {
+    const ac = this.ac, t = ac.currentTime + delay;
+    const s = ac.createBufferSource();
+    s.buffer = this.noiseBuf;
+    const fl = ac.createBiquadFilter();
+    fl.type = type;
+    fl.frequency.setValueAtTime(f, t);
+    if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    s.connect(fl).connect(g).connect(this.master);
+    s.start(t, Math.random()); s.stop(t + dur + 0.05);
+  },
+  // --- 効果音 ---
+  kotsu() { if (!this.ok('kotsu')) return; this.tone(1700, 0.04, 'square', 0.18, 1000); this.tone(950, 0.09, 'triangle', 0.35, 600, 0.015); },
+  bofu()  { if (!this.ok('bofu')) return;  this.noise(0.28, 0.6, 'lowpass', 900, 120); this.tone(170, 0.18, 'sine', 0.35, 70); },
+  zaba(s = 0.5) { if (!this.ok('zaba', 0.25)) return; this.noise(0.4 + s * 0.8, 0.12 + s * 0.35, 'bandpass', 1600, 220); },
+  don()   { if (!this.ok('don')) return;   this.tone(150, 0.4, 'sine', 0.7, 38); this.noise(0.25, 0.4, 'lowpass', 600, 90); },
+  rescue(){ if (!this.ok('rescue', 0.1)) return; [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.16, 'triangle', 0.25, null, i * 0.07)); },
+  horn()  { if (!this.ac || this.muted) return; this.tone(98, 1.4, 'sawtooth', 0.12); this.tone(147, 1.4, 'sawtooth', 0.08); this.tone(49, 1.4, 'sine', 0.3); },
+  uzu()   { if (!this.ok('uzu', 0.5)) return; this.noise(1.6, 0.35, 'bandpass', 250, 1400); this.tone(260, 1.6, 'sine', 0.12, 60); },
+  boo()   { if (!this.ok('boo', 0.12)) return; this.tone(210, 0.16, 'square', 0.07, 150); },
+  splash(){ if (!this.ok('splash', 0.08)) return; this.noise(0.22, 0.2, 'highpass', 2500, 700); },
+  throw() { if (!this.ok('throw')) return; this.tone(420, 0.2, 'sine', 0.15, 950); },
+  pole()  { if (!this.ok('pole')) return; this.tone(260, 0.14, 'sawtooth', 0.07, 700); },
+  gari()  { if (!this.ok('gari', 0.3)) return; this.noise(0.5, 0.5, 'lowpass', 500, 80); this.tone(70, 0.4, 'sawtooth', 0.12, 40); },
+  brake() { if (!this.ok('brake', 0.4)) return; this.tone(1900, 0.5, 'square', 0.04, 1500); this.noise(0.6, 0.3, 'bandpass', 2500, 600); },
+  good()  { if (!this.ok('good', 0.3)) return; this.tone(880, 0.1, 'sine', 0.12, 1320); },
+  crowd() {
+    if (!this.ac || this.muted) return;
+    this.noise(2.6, 0.22, 'bandpass', 700, 500);
+    for (let i = 0; i < 14; i++) this.tone(rand(180, 340), 0.18, 'square', 0.04, rand(120, 220), i * 0.16 + Math.random() * 0.1);
+  },
+  shout() { if (!this.ok('shout', 0.2)) return; this.tone(330, 0.3, 'sawtooth', 0.1, 190); this.noise(0.3, 0.25, 'bandpass', 900, 400); },
+  end()   { if (!this.ac || this.muted) return; [784, 659, 523, 392].forEach((f, i) => this.tone(f, 0.25, 'triangle', 0.25, null, i * 0.14)); },
+  engineStart() {
+    if (!this.ac || this.eng) return;
+    const o = this.ac.createOscillator(), f = this.ac.createBiquadFilter(), g = this.ac.createGain();
+    o.type = 'sawtooth'; o.frequency.value = 38;
+    f.type = 'lowpass'; f.frequency.value = 160;
+    g.gain.value = 0;
+    o.connect(f).connect(g).connect(this.master);
+    o.start();
+    this.eng = { o, g };
+  },
+  engineSet(k) {
+    if (!this.eng) return;
+    const t = this.ac.currentTime;
+    this.eng.g.gain.setTargetAtTime(this.muted ? 0 : 0.05 + k * 0.14, t, 0.1);
+    this.eng.o.frequency.setTargetAtTime(34 + k * 28, t, 0.2);
+  },
+  engineStop() {
+    if (!this.eng) return;
+    const e = this.eng; this.eng = null;
+    e.g.gain.setTargetAtTime(0, this.ac.currentTime, 0.2);
+    setTimeout(() => e.o.stop(), 800);
+  },
+};
+
+/* =========================================================
+   セリフ集
+   ========================================================= */
+const LINES = {
+  help: ['たすけてー！(訓練)', '溺れ役でーす！', 'こっちでーす！', '訓練中でーす！', 'はい、溺れてます', 'たすけてー(棒読み)'],
+  scared: ['訓練ですよね!?', 'でかいでかい！', '止まってーー！', '波が本気！', '聞いてた船と違う！'],
+  selfMade: ['私、参加者じゃないです！', '見学に来ただけなのに！', 'ガチで溺れてます！', '役じゃないです！本物です！'],
+  rock: ['岩の上の役です！', '取り残され役です！', 'そこから来るの!?'],
+  dizzy: ['@_@', 'まわるー', 'うぷ…'],
+  thanks: ['救助ありがとう…訓練だよね？', '助かった！…船でかいね', '訓練のわりに本気だった', 'ありがとう！ちょっと酔った', '想定外の救助船でした'],
+  thanksBonk: ['ありがとう…頭いたい', '訓練でたんこぶできた', '救助と暴行の境目だった'],
+  thanksScoop: ['え、静かに来れるじゃん', 'そっと来れるならずっとそうして', 'やさしい…船なのに'],
+  thanksBofu: ['顔面に浮き輪…ありがとう', '浮き輪が顔に刺さった', '投げ方に殺意なかった？'],
+  thanksSelf: ['どうも。落としたのもあんただけど', '参加してないのに救助された', 'マッチポンプって知ってる？'],
+  soaked: ['つめたっ！', 'ちょっと！', 'スマホが！', '日焼け止めが！', 'ぎゃー！'],
+};
+
+/* =========================================================
+   ゲーム状態
+   ========================================================= */
+let state = 'title';   // title / howto / play / paused / ending / result
+let G = null;
+let resultShownAt = 0;
+
+const SKINS = ['#f5cfa6', '#e8b38a', '#c98e62', '#f7d9bd', '#a86d45'];
+const HAIRS = ['#2b1d14', '#5a3a1e', '#111', '#c9a15a', '#7a2f1b', '#888'];
+const CAPS = ['#e84a3c', '#ffd43b', '#3aa0ff', '#ffffff', '#7ad36b'];
+const SUITS = ['#e84a3c', '#3aa0ff', '#ffd43b', '#9b59b6', '#2ecc71', '#ff7fbf'];
+
+const ROCK_DEFS = [
+  { y: 330, dx: 230, r: 34 }, { y: 760, dx: 400, r: 46 }, { y: 1160, dx: 250, r: 32 },
+  { y: 1420, dx: 560, r: 40 }, { y: 250, dx: 1500, r: 52 }, { y: 1250, dx: 1300, r: 38 },
+];
+
+// 救助した人が座るデッキ位置（船のローカル座標）
+const DECK_SLOTS = [];
+for (let x = 132; x >= 44; x -= 12) {
+  for (let y = -40; y <= 40; y += 11) {
+    if ((x / 150) ** 2 + (y / 47) ** 2 < 0.78) DECK_SLOTS.push([x, y]);
+  }
+}
+for (let x = -92; x >= -140; x -= 12) {
+  for (let y = -36; y <= 36; y += 11) {
+    if (Math.abs(y) > 20 || x < -128) DECK_SLOTS.push([x, y]);
+  }
+}
+
+function newWorld(demo) {
+  G = {
+    demo, t: 0, time: GAME_TIME, endT: 0,
+    ship: {
+      x: 1500, y: 800, vx: 0, vy: 0, a: Math.PI, av: 0, speed: 0,
+      braking: false, beached: false, beachT: 0, rockCd: 0, deck: [],
+    },
+    victims: [], crafts: [], beach: [], buoys: [], waves: [], vortices: [],
+    parts: [], pops: [], rocks: [], palms: [], log: [],
+    pole: { active: false },
+    stats: {
+      rescued: 0, meiwaku: 0, selfRescued: 0, bonks: 0, bofu: 0, capsized: 0,
+      soaked: 0, swept: 0, vortex: 0, castles: 0, shop: 0, beached: 0, rams: 0,
+      dragged: 0, rockFall: 0, scoops: 0,
+    },
+    vortexCharge: 0, waveTimer: 0, buoyCd: 0, poleCd: 0,
+    spawnT: 0, craftT: 0, shake: 0, cam: { x: 0, y: 0 }, smokeT: 0,
+  };
+  const s = G.ship;
+  if (demo) { s.x = 1100; s.y = 900; s.vx = -120; s.a = Math.PI; }
+
+  for (const r of ROCK_DEFS) G.rocks.push({ x: shoreX(r.y) + r.dx, y: r.y, r: r.r, seed: Math.random() * 10 });
+  for (let i = 0; i < 14; i++) G.palms.push({ x: rand(70, 150), y: 60 + i * 115 + rand(-20, 20), s: rand(0.8, 1.2) });
+
+  // 砂浜の人たち
+  for (let i = 0; i < 8; i++) {
+    const y = 160 + i * (WORLD_H - 320) / 7 + rand(-40, 40);
+    if (Math.abs(y - WORLD_H * 0.55) < 90) continue; // 海の家の場所は空ける
+    const x = shoreX(y) - rand(40, 130);
+    G.beach.push({ kind: 'sun', x, y, x0: x, y0: y, cd: 0, wet: 0, flee: 0, gone: 0, suit: pick(SUITS), skin: pick(SKINS), hair: pick(HAIRS) });
+    if (Math.random() < 0.75) G.beach.push({ kind: 'parasol', x: x - 22, y: y - 16, x0: x - 22, y0: y - 16, z: 0, vz: 0, vx: 0, vy: 0, blown: false, respawn: 0, rot: 0, col: pick(['#e84a3c', '#3aa0ff', '#ffd43b', '#2ecc71']) });
+  }
+  for (let i = 0; i < 4; i++) {
+    const y = rand(150, WORLD_H - 150);
+    G.beach.push({ kind: 'castle', x: shoreX(y) - rand(18, 45), y, broken: false, rebuild: 0, skin: pick(SKINS) });
+  }
+  const sy = WORLD_H * 0.55;
+  G.beach.push({ kind: 'shop', x: shoreX(sy) - 150, y: sy, cd: 0, wet: 0, crashed: 0 });
+
+  // 海の上の人たち
+  for (let i = 0; i < 4; i++) spawnCraft('boat');
+  for (let i = 0; i < 3; i++) spawnCraft('surfer');
+  spawnCraft('swan');
+  // 要救助者
+  spawnVictim(true); spawnVictim(true);
+  for (let i = 0; i < 4; i++) spawnVictim(false);
+
+  updateCamera(1);
+}
+
+/* ---------- 生成 ---------- */
+function farFromShip(x, y, d) { return dist(x, y, G.ship.x, G.ship.y) > d; }
+function freeSpot(minX, maxX, minD) {
+  for (let i = 0; i < 40; i++) {
+    const y = rand(140, WORLD_H - 140);
+    const x = rand(Math.max(minX(y), shoreX(y) + 70), maxX(y));
+    if (!farFromShip(x, y, minD)) continue;
+    if (G.rocks.some(r => dist(x, y, r.x, r.y) < r.r + 30)) continue;
+    return { x, y };
+  }
+  return { x: rand(1800, 2200), y: rand(200, 1400) };
+}
+function makeVictim(x, y, opts = {}) {
+  return Object.assign({
+    x, y, vx: 0, vy: 0, z: 0, vz: 0, state: 'drown', dazed: 0, selfMade: false, bump: false,
+    rock: null, t: Math.random() * 10, sayT: 0, sayCd: rand(0.5, 2.5), say: '',
+    hitCd: 0, pushCd: 0, uzuT: 0, how: '', rad: 11,
+    skin: pick(SKINS), hair: pick(HAIRS), cap: Math.random() < 0.35 ? pick(CAPS) : null,
+  }, opts);
+}
+function spawnVictim(onRock) {
+  if (onRock) {
+    const free = G.rocks.filter(r => !G.victims.some(v => v.rock === r) && farFromShip(r.x, r.y, 350));
+    if (free.length) {
+      const r = pick(free);
+      G.victims.push(makeVictim(r.x, r.y - 6, { state: 'rock', rock: r }));
+      return;
+    }
+  }
+  const p = freeSpot(y => shoreX(y) + 120, () => WORLD_W - 140, 480);
+  G.victims.push(makeVictim(p.x, p.y));
+}
+function spawnCraft(kind) {
+  let p;
+  if (kind === 'surfer') p = freeSpot(y => shoreX(y) + 90, y => shoreX(y) + 380, 500);
+  else if (kind === 'swan') p = freeSpot(y => shoreX(y) + 120, y => shoreX(y) + 600, 500);
+  else p = freeSpot(y => shoreX(y) + 350, () => WORLD_W - 150, 500);
+  G.crafts.push({
+    kind, x: p.x, y: p.y, vx: 0, vy: 0, a: rand(0, Math.PI * 2), av: 0,
+    rad: kind === 'surfer' ? 16 : 22, capsized: false, capT: 0, cd: 0, uzuT: 0, uzuCd: 0, t: Math.random() * 10,
+    skin: pick(SKINS), hair: pick(HAIRS), col: pick(['#b07a45', '#8d5a33', '#c9894e']), board: pick(['#ffd43b', '#ff7fbf', '#3aa0ff', '#7ad36b']),
+  });
+}
+
+/* =========================================================
+   演出（パーティクル・ポップアップ・ログ）
+   ========================================================= */
+function pop(x, y, text, color = '#fff', size = 22, life = 1.1, opts = {}) {
+  G.pops.push(Object.assign({ x, y, text, color, size, life, max: life, vy: -45 }, opts));
+}
+function bubble(x, y, text, life = 2.2) {
+  G.pops.push({ x, y, text, bubble: true, life, max: life, vy: -12, size: 14 });
+}
+function splash(x, y, n = 10, pow = 90, col = '#ffffff') {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, sp = rand(0.3, 1) * pow;
+    G.parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rand(0.4, 0.9), max: 0.9, size: rand(2, 5), col, grow: 0 });
+  }
+}
+function log(text) {
+  G.log.unshift({ text, t: 5 });
+  if (G.log.length > 5) G.log.pop();
+}
+function addMeiwaku(n, x, y, text, statKey) {
+  if (statKey) G.stats[statKey]++;
+  G.stats.meiwaku += n;
+  pop(x + rand(-10, 10), y + 22, `迷惑 +${n}`, '#ff6b5b', 15, 1.2, { vy: -30 });
+  if (text) log(`${text}（迷惑+${n}）`);
+  Snd.boo();
+}
+function shake(n) { G.shake = Math.max(G.shake, n); }
+
+/* =========================================================
+   船まわりの計算
+   ========================================================= */
+function toLocal(px, py) {
+  const s = G.ship, c = Math.cos(s.a), sn = Math.sin(s.a);
+  const dx = px - s.x, dy = py - s.y;
+  return { x: dx * c + dy * sn, y: -dx * sn + dy * c };
+}
+function toWorld(lx, ly) {
+  const s = G.ship, c = Math.cos(s.a), sn = Math.sin(s.a);
+  return { x: s.x + lx * c - ly * sn, y: s.y + lx * sn + ly * c };
+}
+// 船体（楕円）から点までのおおよその距離。マイナスなら船体の中
+function hullGap(px, py) {
+  const l = toLocal(px, py);
+  const len = Math.hypot(l.x, l.y) || 0.001;
+  const k = 1 / Math.sqrt((l.x / HULL_A) ** 2 + (l.y / HULL_B) ** 2 || 1e-6);
+  return len * (1 - k);
+}
+// ある方向に向かう線と船体の交点（棒や浮き輪の発射位置）
+function hullEdge(worldAng) {
+  const phi = worldAng - G.ship.a;
+  const c = Math.cos(phi), sn = Math.sin(phi);
+  const t = 1 / Math.sqrt((c / HULL_A) ** 2 + (sn / HULL_B) ** 2);
+  return toWorld(c * t, sn * t);
+}
+function shipSamples() {
+  const pts = [];
+  for (let k = 0; k < 16; k++) {
+    const th = k / 16 * Math.PI * 2;
+    pts.push(toWorld(Math.cos(th) * HULL_A, Math.sin(th) * HULL_B));
+  }
+  return pts;
+}
+
+/* =========================================================
+   入力
+   ========================================================= */
+const KEYS = {};
+const mouse = { x: W / 2, y: H / 2, in: false };
+
+function key(...codes) { return codes.some(c => KEYS[c]); }
+
+window.addEventListener('keydown', e => {
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+  KEYS[e.code] = true;
+  if (e.repeat) return;
+  Snd.init();
+  onKeyPress(e.code);
+});
+window.addEventListener('keyup', e => { KEYS[e.code] = false; });
+window.addEventListener('blur', () => {
+  for (const k in KEYS) KEYS[k] = false;
+  if (state === 'play') setState('paused');
+});
+
+function toCanvas(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+}
+canvas.addEventListener('mousemove', e => { const p = toCanvas(e); mouse.x = p.x; mouse.y = p.y; mouse.in = true; });
+canvas.addEventListener('mouseleave', () => { mouse.in = false; });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('mousedown', e => {
+  Snd.init();
+  const p = toCanvas(e); mouse.x = p.x; mouse.y = p.y; mouse.in = true;
+  if (state === 'paused') { setState('play'); return; }
+  if (state === 'confront') { if (G.cf.t > 1) showResult(); return; }
+  if (state !== 'play') return;
+  e.preventDefault();
+  if (e.button === 0) usePole(false);
+  else if (e.button === 2) throwBuoy(false);
+});
+
+function onKeyPress(code) {
+  if (code === 'KeyM') { Snd.muted = !Snd.muted; if (!Snd.muted) Snd.engineSet(0); return; }
+  switch (state) {
+    case 'title':
+      if (code === 'Enter' || code === 'Space') startGame();
+      else if (code === 'KeyH') setState('howto');
+      break;
+    case 'howto':
+      if (code === 'Enter' || code === 'Space') startGame();
+      else if (code === 'Escape') setState('title');
+      break;
+    case 'play':
+      if (code === 'KeyZ') usePole(true);
+      else if (code === 'KeyX') throwBuoy(true);
+      else if (code === 'Escape' || code === 'KeyP') setState('paused');
+      break;
+    case 'paused':
+      if (code === 'Escape' || code === 'KeyP' || code === 'Enter') setState('play');
+      else if (code === 'KeyQ') toTitle();
+      break;
+    case 'confront':
+      if (G.cf.t > 1) showResult();
+      break;
+    case 'result':
+      if (performance.now() - resultShownAt < 800) return;
+      if (code === 'KeyR' || code === 'Enter') startGame();
+      else if (code === 'Escape') toTitle();
+      break;
+  }
+}
+
+// 狙う位置。auto=true なら一番近い要救助者を狙う
+function aimTarget(auto) {
+  const s = G.ship;
+  if (auto) {
+    let best = null, bd = 1e9;
+    for (const v of G.victims) {
+      if (v.state !== 'drown' && v.state !== 'rock') continue;
+      const d = hullGap(v.x, v.y);
+      if (d < bd) { bd = d; best = v; }
+    }
+    if (best && bd < 450) return { x: best.x, y: best.y, auto: true };
+  }
+  if (mouse.in) return { x: mouse.x + G.cam.x, y: mouse.y + G.cam.y, auto };
+  return { x: s.x + Math.cos(s.a) * 300, y: s.y + Math.sin(s.a) * 300, auto };
+}
+
+/* =========================================================
+   救助アクション：救助棒
+   ========================================================= */
+function usePole(auto) {
+  const P = G.pole;
+  if (P.active || G.poleCd > 0) return;
+  const s = G.ship, tg = aimTarget(auto);
+  const ang = Math.atan2(tg.y - s.y, tg.x - s.x);
+  Object.assign(P, { active: true, phase: 'out', len: 0, maxLen: 230, relAng: ang - s.a, hitSet: new Set() });
+  Snd.pole();
+}
+function updatePole(dt) {
+  const P = G.pole;
+  if (!P.active) return;
+  const s = G.ship, ang = s.a + P.relAng;
+  const o = hullEdge(ang);
+  P.ox = o.x; P.oy = o.y;
+  if (P.phase === 'out') {
+    P.len += 950 * dt;
+    if (P.len >= P.maxLen) { P.len = P.maxLen; P.phase = 'hold'; P.holdT = 0.12; }
+  } else if (P.phase === 'hold') {
+    P.holdT -= dt;
+    if (P.holdT <= 0) P.phase = 'back';
+  } else {
+    P.len -= 800 * dt;
+    if (P.len <= 0) { P.active = false; G.poleCd = 0.2; return; }
+  }
+  P.tx = o.x + Math.cos(ang) * P.len;
+  P.ty = o.y + Math.sin(ang) * P.len;
+  P.ang = ang;
+  if (P.phase !== 'back') poleHitTest();
+}
+function poleHitTest() {
+  const P = G.pole, s = G.ship;
+  const near = (x, y, r) => distToSegment(x, y, P.ox, P.oy, P.tx, P.ty) < r;
+
+  for (const v of G.victims) {
+    if ((v.state !== 'drown' && v.state !== 'rock') || v.z > 4 || P.hitSet.has(v)) continue;
+    if (!near(v.x, v.y, 20)) continue;
+    P.hitSet.add(v);
+    const bonkChance = clamp(0.18 + s.speed / 170 + Math.abs(s.av) * 0.6, 0.18, 0.95);
+    if (Math.random() < bonkChance) {
+      Snd.kotsu();
+      pop(v.x, v.y - 16, 'コツッ', '#ffe14d', 26, 0.9);
+      stars(v.x, v.y);
+      v.bump = true;
+      if (s.speed > 110 || Math.abs(s.av) > 0.6) {
+        // 速すぎて弾き飛ばす
+        const a = P.ang;
+        if (v.state === 'rock') { v.state = 'drown'; v.rock = null; G.stats.rockFall++; }
+        v.vx += Math.cos(a) * 220; v.vy += Math.sin(a) * 220; v.dazed = 2;
+        addMeiwaku(5, v.x, v.y, '救助棒で要救助者を小突き飛ばした', 'bonks');
+      } else {
+        addMeiwaku(3, v.x, v.y, '救助棒で頭を小突いた（救助は成功）', 'bonks');
+        startPull(v, 'bonk');
+        P.phase = 'back';
+      }
+    } else {
+      pop(v.x, v.y - 16, 'ガシッ', '#9ff5b8', 22, 0.8);
+      startPull(v, 'pole');
+      P.phase = 'back';
+    }
+  }
+  for (const c of G.crafts) {
+    if (c.capsized || P.hitSet.has(c) || !near(c.x, c.y, c.rad)) continue;
+    P.hitSet.add(c);
+    Snd.kotsu();
+    pop(c.x, c.y - 16, 'コツッ', '#ffe14d', 24, 0.9);
+    stars(c.x, c.y);
+    if (c.kind === 'surfer') {
+      capsize(c, 0);
+      addMeiwaku(4, c.x, c.y, 'サーファーを救助棒で落とした', 'bonks');
+    } else {
+      addMeiwaku(4, c.x, c.y, c.kind === 'boat' ? '釣り人を救助棒で小突いた' : 'スワンボートの客を小突いた', 'bonks');
+      c.vx += Math.cos(P.ang) * 60; c.vy += Math.sin(P.ang) * 60;
+      bubble(c.x, c.y - 30, pick(['いてっ！', 'なに!?', '溺れてないです！']));
+    }
+  }
+  for (const b of G.beach) {
+    if (b.kind !== 'sun' || b.gone || P.hitSet.has(b) || !near(b.x, b.y, 16)) continue;
+    P.hitSet.add(b);
+    Snd.kotsu();
+    pop(b.x, b.y - 16, 'コツッ', '#ffe14d', 24, 0.9);
+    stars(b.x, b.y);
+    addMeiwaku(4, b.x, b.y, '砂浜で寝ている人を小突いた', 'bonks');
+    bubble(b.x, b.y - 30, pick(['寝てただけです！', 'いたっ！', '陸ですけど!?']));
+  }
+}
+function stars(x, y) {
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2;
+    G.parts.push({ x, y: y - 10, vx: Math.cos(a) * 60, vy: Math.sin(a) * 60 - 20, life: 0.6, max: 0.6, size: 4, col: '#ffe14d', star: true });
+  }
+}
+
+/* =========================================================
+   救助アクション：浮き輪
+   ========================================================= */
+function throwBuoy(auto) {
+  if (G.buoyCd > 0) return;
+  const s = G.ship, tg = aimTarget(auto);
+  const ang = Math.atan2(tg.y - s.y, tg.x - s.x);
+  const o = hullEdge(ang);
+  let tx = tg.x, ty = tg.y, dd = dist(o.x, o.y, tx, ty);
+  const maxR = 420;
+  if (dd > maxR) { tx = o.x + (tx - o.x) / dd * maxR; ty = o.y + (ty - o.y) / dd * maxR; dd = maxR; }
+  const dur = 0.45 + dd / 900;
+  // 船が動いている・回っているほどズレる。慣性で船の進行方向にも流れる
+  const spread = 10 + s.speed * 0.22 + Math.abs(s.av) * 90 + (tg.auto ? 22 : 0) + dd * 0.04;
+  const ra = Math.random() * Math.PI * 2, rr = Math.random() * spread;
+  tx += Math.cos(ra) * rr + s.vx * dur * 0.8;
+  ty += Math.sin(ra) * rr + s.vy * dur * 0.8;
+  G.buoys.push({ x: o.x, y: o.y, sx: o.x, sy: o.y, tx, ty, t: 0, dur, z: 0, state: 'fly', life: 10, vx: 0, vy: 0, rot: 0, rad: 10 });
+  G.buoyCd = 1.0;
+  Snd.throw();
+}
+function buoyLand(b) {
+  b.z = 0;
+  // 砂浜に落ちた
+  if (b.x < shoreX(b.y)) {
+    b.state = 'sand'; b.life = 2.5;
+    for (const p of G.beach) {
+      if (p.kind === 'sun' && !p.gone && dist(p.x, p.y, b.x, b.y) < 30) {
+        Snd.bofu();
+        pop(p.x, p.y - 18, 'ボフッ', '#ff9ad5', 28, 1);
+        addMeiwaku(4, p.x, p.y, '砂浜の客に浮き輪が直撃', 'bofu');
+        bubble(p.x, p.y - 34, pick(['陸です！', 'なんで!?', '溺れてません！']));
+      }
+    }
+    return;
+  }
+  splash(b.x, b.y, 8, 70);
+  Snd.splash();
+  b.state = 'float';
+
+  // 顔面直撃
+  let direct = null;
+  for (const v of G.victims) {
+    if ((v.state === 'drown' || v.state === 'rock') && dist(v.x, v.y, b.x, b.y) < 16) { direct = v; break; }
+  }
+  for (const c of G.crafts) {
+    if (c.capsized || dist(c.x, c.y, b.x, b.y) > c.rad + 6) continue;
+    Snd.bofu();
+    pop(c.x, c.y - 18, c.kind === 'boat' ? 'ゴンッ' : 'ボフッ', '#ff9ad5', 28, 1);
+    if (c.kind === 'surfer') { capsize(c, 0); addMeiwaku(4, c.x, c.y, 'サーファーに浮き輪を当てて落とした', 'bofu'); }
+    else { addMeiwaku(3, c.x, c.y, '浮き輪で船をどついた', 'bofu'); bubble(c.x, c.y - 30, pick(['危ない！', '魚が逃げた！', 'なにすんの！'])); }
+  }
+  if (direct) {
+    Snd.bofu();
+    pop(direct.x, direct.y - 18, 'ボフッ', '#ff9ad5', 30, 1);
+    direct.bump = true; direct.dazed = 0.6;
+    addMeiwaku(3, direct.x, direct.y, '浮き輪が顔面に命中（つかまった）', 'bofu');
+    grab(direct, b, 'bofu');
+    return;
+  }
+  // 近くの人がつかまる
+  let best = null, bd = 55;
+  for (const v of G.victims) {
+    if (v.state !== 'drown' && v.state !== 'rock') continue;
+    const d = dist(v.x, v.y, b.x, b.y);
+    if (d < bd) { bd = d; best = v; }
+  }
+  if (best) grab(best, b, 'buoy');
+  else pop(b.x, b.y - 14, 'ハズレ', '#cde', 16, 0.8);
+}
+function grab(v, b, how) {
+  if (v.state === 'rock') { v.rock = null; }
+  v.state = 'held'; v.how = how; v.z = 0;
+  b.state = 'reel'; b.victim = v;
+  if (how !== 'bofu') pop(v.x, v.y - 18, 'つかんだ！', '#9ff5b8', 18, 0.9);
+}
+function updateBuoys(dt) {
+  const s = G.ship;
+  for (const b of G.buoys) {
+    b.rot += dt * 2;
+    if (b.state === 'fly') {
+      b.t += dt / b.dur;
+      const t = Math.min(1, b.t);
+      b.x = lerp(b.sx, b.tx, t); b.y = lerp(b.sy, b.ty, t);
+      b.z = Math.sin(Math.PI * t) * 90;
+      if (t >= 1) buoyLand(b);
+    } else if (b.state === 'float') {
+      b.life -= dt;
+      waterStep(b, dt, 1.2);
+      for (const v of G.victims) {
+        if (v.state === 'drown' && v.z <= 0 && dist(v.x, v.y, b.x, b.y) < 26) { grab(v, b, 'buoy'); break; }
+      }
+      if (b.life <= 0) b.dead = true;
+    } else if (b.state === 'reel') {
+      const v = b.victim;
+      if (!v || v.state !== 'held') { b.state = 'float'; b.life = 5; continue; }
+      const e = hullEdge(Math.atan2(b.y - s.y, b.x - s.x));
+      const dx = e.x - b.x, dy = e.y - b.y, d = Math.hypot(dx, dy);
+      const sp = 150 + s.speed;
+      if (d < 14 || hullGap(b.x, b.y) < 4) {
+        startPull(v, v.how);
+        b.dead = true;
+      } else {
+        b.x += dx / d * Math.min(d, sp * dt);
+        b.y += dy / d * Math.min(d, sp * dt);
+      }
+      v.x = b.x; v.y = b.y;
+      // 速く走りながら引っぱると水上スキー状態
+      if (s.speed > 140) {
+        v.dragT = (v.dragT || 0) + dt;
+        if (Math.random() < dt * 20) G.parts.push({ x: b.x, y: b.y, vx: rand(-30, 30), vy: rand(-30, 30), life: 0.5, max: 0.5, size: 4, col: '#fff' });
+        if (v.dragT > 0.8) {
+          v.dragT = 0;
+          addMeiwaku(3, v.x, v.y, '要救助者を水上スキー状態で引きずった', 'dragged');
+          bubble(v.x, v.y - 26, pick(['はやいはやい！', 'ひきずられてる！', '水が鼻に！']), 1.2);
+        }
+      }
+    } else if (b.state === 'sand') {
+      b.life -= dt;
+      if (b.life <= 0) b.dead = true;
+    }
+  }
+  G.buoys = G.buoys.filter(b => !b.dead);
+}
+
+/* =========================================================
+   救助の完了
+   ========================================================= */
+function startPull(v, how) {
+  v.state = 'pulled'; v.how = how; v.pt = 0; v.px0 = v.x; v.py0 = v.y; v.rock = null;
+}
+function updatePulled(v, dt) {
+  const s = G.ship;
+  v.pt += dt / 0.55;
+  const slot = DECK_SLOTS[Math.min(s.deck.length, DECK_SLOTS.length - 1)];
+  const tgt = toWorld(slot[0], slot[1]);
+  const t = Math.min(1, v.pt);
+  const e = 1 - (1 - t) * (1 - t);
+  v.x = lerp(v.px0, tgt.x, e); v.y = lerp(v.py0, tgt.y, e);
+  v.z = Math.sin(Math.PI * t) * 70;
+  if (v.pt >= 1) {
+    v.dead = true;
+    onRescued(v);
+  }
+}
+function onRescued(v) {
+  const s = G.ship, st = G.stats;
+  st.rescued++;
+  if (v.selfMade) st.selfRescued++;
+  if (v.how === 'scoop') st.scoops++;
+  s.deck.push({ skin: v.skin, hair: v.hair, cap: v.cap, bump: v.bump });
+  Snd.rescue();
+  pop(v.x, v.y - 30, '救助！ +1', '#58f08a', 30, 1.4, { vy: -55 });
+  splash(v.x, v.y, 6, 60, '#9ff5b8');
+  let line;
+  if (v.selfMade && Math.random() < 0.7) line = pick(LINES.thanksSelf);
+  else if (v.how === 'bofu') line = pick(LINES.thanksBofu);
+  else if (v.bump) line = pick(LINES.thanksBonk);
+  else if (v.how === 'scoop') line = pick(LINES.thanksScoop);
+  else line = pick(LINES.thanks);
+  bubble(v.x, v.y - 50, line, 2.4);
+  log(`${st.rescued}人目を救助${v.selfMade ? '（自分で落とした人）' : ''}`);
+}
+
+/* =========================================================
+   転覆・波・渦
+   ========================================================= */
+function capsize(c, meiwaku, reason) {
+  if (c.capsized) return;
+  c.capsized = true; c.capT = 0;
+  const n = c.kind === 'swan' ? 2 : 1;
+  for (let i = 0; i < n; i++) {
+    const v = makeVictim(c.x + rand(-14, 14), c.y + rand(-14, 14), { selfMade: true, skin: c.skin, hair: c.hair, vx: c.vx + rand(-50, 50), vy: c.vy + rand(-50, 50) });
+    v.sayCd = 0.3;
+    G.victims.push(v);
+  }
+  splash(c.x, c.y, 14, 110);
+  Snd.zaba(0.6);
+  if (c.kind !== 'surfer') G.stats.capsized++;
+  pop(c.x, c.y - 24, c.kind === 'surfer' ? 'ドボン' : '転覆！', '#ffffff', 26, 1.1);
+  if (meiwaku) addMeiwaku(meiwaku, c.x, c.y, reason);
+}
+function addWave(x, y, str, maxR) {
+  G.waves.push({ x, y, r: 12, str, maxR: maxR || (170 + 430 * str), hit: new Set(), shore: false });
+}
+function waveHitFloating(e, nx, ny, cur) {
+  if (e.state === 'rock') {
+    if (cur > 0.42) {
+      e.state = 'drown'; e.rock = null; e.selfMade = true;
+      e.vx = nx * 120; e.vy = ny * 120;
+      splash(e.x, e.y, 10, 90);
+      pop(e.x, e.y - 18, 'ザブン', '#fff', 22);
+      addMeiwaku(5, e.x, e.y, '波で岩の上の人を海に落とした', 'rockFall');
+    }
+    return;
+  }
+  e.vx += nx * cur * 170;
+  e.vy += ny * cur * 170;
+  if (e.kind) { // 船・サーファー
+    const c = e;
+    if (c.capsized) return;
+    if (c.kind === 'surfer') {
+      if (cur >= 0.45) capsize(c, 6, '大波でサーファーを沈めた');
+      else if (cur > 0.16 && c.cd <= 0) { c.cd = 3; bubble(c.x, c.y - 26, pick(['いい波！', 'ヒャッホウ！', '最高！']), 1.4); Snd.good(); }
+    } else if (c.kind === 'boat') {
+      if (cur >= 0.42) capsize(c, 8, '大波で釣り船を転覆させた');
+      else if (cur > 0.2 && c.cd <= 0) { c.cd = 3; bubble(c.x, c.y - 28, pick(['揺れる揺れる！', '釣れてたのに！', 'おい！']), 1.4); }
+    } else if (c.kind === 'swan') {
+      if (cur >= 0.36) capsize(c, 10, '大波でスワンボートを転覆させた');
+      else if (cur > 0.18 && c.cd <= 0) { c.cd = 3; bubble(c.x, c.y - 28, pick(['デートが！', 'きゃー！']), 1.4); }
+    }
+  } else if (e.state === 'drown' && cur > 0.35 && e.pushCd <= 0) {
+    e.pushCd = 2.5;
+    e.say = pick(['うわぷっ', 'がぼぼ', '遠ざかる！']); e.sayT = 1.2;
+    addMeiwaku(1, e.x, e.y, null);
+  }
+}
+function beachHit(p, eff, nx, byShip) {
+  if (p.kind === 'sun') {
+    if (p.gone || p.cd > 0) return;
+    if (eff < 0.1 && !byShip) return;
+    p.cd = 3; p.wet = 4;
+    if (byShip) {
+      p.flee = 2.5;
+      addMeiwaku(5, p.x, p.y, '船が砂浜に乗り上げ、海水浴客が逃げまどう', 'soaked');
+      bubble(p.x, p.y - 30, pick(['ひいい！', '船が陸に!?', 'なんで来るの！']));
+    } else if (eff > 0.5 && Math.random() < 0.6) {
+      p.gone = 30;
+      const sx = shoreX(p.y) + 40;
+      const v = makeVictim(sx, p.y, { selfMade: true, skin: p.skin, hair: p.hair, vx: 90, vy: rand(-30, 30), sayCd: 0.2 });
+      G.victims.push(v);
+      splash(sx, p.y, 14, 100);
+      pop(p.x, p.y - 20, 'さらわれた!!', '#fff', 22, 1.3);
+      addMeiwaku(8, p.x, p.y, '大波で海水浴客をさらってしまった', 'swept');
+    } else {
+      addMeiwaku(3, p.x, p.y, '海水浴客をずぶ濡れにした', 'soaked');
+      bubble(p.x, p.y - 28, pick(LINES.soaked), 1.6);
+    }
+  } else if (p.kind === 'parasol') {
+    if (p.blown || (eff < 0.25 && !byShip)) return;
+    p.blown = true; p.respawn = 20;
+    p.vx = (nx || -1) * rand(120, 200); p.vy = rand(-80, 80); p.vz = 220; p.z = 1;
+    pop(p.x, p.y - 20, 'バサァッ', '#fff', 20);
+    addMeiwaku(2, p.x, p.y, 'パラソルを吹き飛ばした', null);
+  } else if (p.kind === 'castle') {
+    if (p.broken || (eff < 0.15 && !byShip)) return;
+    p.broken = true; p.rebuild = 25;
+    pop(p.x, p.y - 20, 'ザザー…', '#fff', 20);
+    bubble(p.x - 10, p.y - 36, pick(['城がー！', 'ぼくの城が…', '3時間かかったのに']), 2);
+    addMeiwaku(5, p.x, p.y, '子どもの砂の城を流した', 'castles');
+  } else if (p.kind === 'shop') {
+    if (p.cd > 0) return;
+    if (byShip) {
+      p.cd = 6; p.crashed = 4;
+      shake(14);
+      pop(p.x, p.y - 50, 'メキメキッ', '#ffb14d', 30, 1.3);
+      bubble(p.x, p.y - 70, '店に船首が入ってきた！', 2.4);
+      addMeiwaku(20, p.x, p.y, '海の家に船首から突っ込んだ', 'shop');
+    } else if (eff > 0.2) {
+      p.cd = 6; p.wet = 5;
+      pop(p.x, p.y - 40, 'ザバーン', '#bfe9ff', 26, 1.2);
+      bubble(p.x, p.y - 60, pick(['焼きそばがー！', 'かき氷がしょっぱい！', '営業妨害だ！']), 2.2);
+      addMeiwaku(10, p.x, p.y, '海の家を浸水させた', 'shop');
+    }
+  }
+}
+function updateWaves(dt) {
+  const floating = [];
+  for (const v of G.victims) if ((v.state === 'drown' || v.state === 'rock') && v.z <= 0) floating.push(v);
+  for (const c of G.crafts) floating.push(c);
+  for (const b of G.buoys) if (b.state === 'float') floating.push(b);
+
+  for (const w of G.waves) {
+    w.r += 230 * dt;
+    const cur = w.str * (1 - w.r / w.maxR);
+    if (cur <= 0.02) { w.dead = true; continue; }
+    for (const e of floating) {
+      if (w.hit.has(e)) continue;
+      const d = dist(e.x, e.y, w.x, w.y);
+      if (Math.abs(d - w.r) < 22) {
+        w.hit.add(e);
+        waveHitFloating(e, (e.x - w.x) / (d || 1), (e.y - w.y) / (d || 1), cur);
+      }
+    }
+    for (const p of G.beach) {
+      if (w.hit.has(p)) continue;
+      const d = dist(p.x, p.y, w.x, w.y);
+      if (Math.abs(d - w.r) < 26) {
+        w.hit.add(p);
+        const eff = cur * landFactor(p.x, p.y);
+        if (eff > 0.08) beachHit(p, eff, (p.x - w.x) / (d || 1), false);
+      }
+    }
+    // 波打ち際のしぶき
+    const sx = shoreX(w.y);
+    if (!w.shore && w.r >= w.x - sx) {
+      w.shore = true;
+      if (cur > 0.18) {
+        const span = Math.sqrt(Math.max(0, (w.r + 60) ** 2 - (w.x - sx) ** 2));
+        for (let i = 0; i < 16 * cur + 4; i++) {
+          const y = w.y + rand(-span, span) * 0.7;
+          G.parts.push({ x: shoreX(y) + rand(-10, 10), y, vx: rand(-80, -20) * cur * 2, vy: rand(-20, 20), life: rand(0.6, 1.2), max: 1.2, size: rand(3, 8), col: '#ffffff' });
+        }
+        Snd.zaba(cur);
+        if (cur > 0.3) pop(sx - 20, w.y, 'ザバーン', '#e6f7ff', 22 + cur * 18, 1.1);
+      }
+    }
+  }
+  G.waves = G.waves.filter(w => !w.dead);
+}
+function spawnVortex() {
+  const s = G.ship;
+  G.vortices.push({ x: s.x, y: s.y, t: 0, life: 7, r: 300, rot: 0 });
+  G.stats.vortex++;
+  Snd.uzu();
+  shake(8);
+  pop(s.x, s.y - 90, 'ぐるぐる～', '#bfe9ff', 34, 1.6);
+  addMeiwaku(5, s.x, s.y, '船の真下に渦を発生させた', null);
+}
+function updateVortices(dt) {
+  const s = G.ship;
+  for (const vx of G.vortices) {
+    vx.t += dt; vx.rot += dt * 2.5;
+    const k = Math.min(1, vx.t / 0.8) * Math.min(1, (vx.life - vx.t) / 1.5);
+    vx.k = Math.max(0, k);
+    if (vx.t >= vx.life) { vx.dead = true; continue; }
+    const affect = (e, isCraft) => {
+      const dx = e.x - vx.x, dy = e.y - vx.y, d = Math.hypot(dx, dy) || 1;
+      if (d > vx.r) { e.uzuT = 0; return false; }
+      const f = (1 - d / vx.r) * vx.k;
+      e.vx += (-dy / d * 240 - dx / d * 90) * f * dt;
+      e.vy += (dx / d * 240 - dy / d * 90) * f * dt;
+      e.uzuT = (e.uzuT || 0) + dt;
+      return true;
+    };
+    for (const v of G.victims) {
+      if (v.state !== 'drown' || v.z > 0) continue;
+      if (affect(v)) {
+        v.dazed = Math.max(v.dazed, 0.4);
+        if (v.uzuT > 1.5) { v.uzuT = 0; addMeiwaku(1, v.x, v.y, null); v.say = pick(LINES.dizzy); v.sayT = 1; }
+      }
+    }
+    for (const c of G.crafts) {
+      if (!affect(c)) continue;
+      c.av += 3 * dt;
+      if (c.uzuT > 1.2 && !c.capsized) {
+        c.uzuT = 0;
+        if (c.kind !== 'surfer' && Math.random() < 0.35) capsize(c, 6, '渦で船を転覆させた');
+        else { addMeiwaku(2, c.x, c.y, '渦に船を巻き込んだ'); bubble(c.x, c.y - 28, pick(['まわるまわる！', '酔う！', 'なんで渦が!?']), 1.3); }
+      }
+    }
+    for (const b of G.buoys) if (b.state === 'float') affect(b);
+    // 自分の渦に自分もちょっと回される
+    if (dist(s.x, s.y, vx.x, vx.y) < vx.r) s.av += 0.35 * vx.k * dt;
+  }
+  G.vortices = G.vortices.filter(v => !v.dead);
+}
+
+/* =========================================================
+   水の上の物理
+   ========================================================= */
+function waterStep(e, dt, drag) {
+  e.x += e.vx * dt; e.y += e.vy * dt;
+  const k = Math.max(0, 1 - drag * dt);
+  e.vx *= k; e.vy *= k;
+  e.vx += Math.sin(G.t * 0.4 + e.y * 0.004) * 6 * dt;
+  e.vy += Math.cos(G.t * 0.3 + e.x * 0.004) * 6 * dt;
+  keepInSea(e, e.rad || 12);
+}
+function keepInSea(e, r) {
+  const sx = shoreX(e.y) + r + 4;
+  if (e.x < sx) { e.x = sx; if (e.vx < 0) e.vx *= -0.4; }
+  if (e.x > WORLD_W - r) { e.x = WORLD_W - r; e.vx = -Math.abs(e.vx) * 0.4; }
+  if (e.y < r) { e.y = r; e.vy = Math.abs(e.vy) * 0.4; }
+  if (e.y > WORLD_H - r) { e.y = WORLD_H - r; e.vy = -Math.abs(e.vy) * 0.4; }
+  for (const rk of G.rocks) {
+    if (e.rock === rk) continue;
+    const d = dist(e.x, e.y, rk.x, rk.y), m = rk.r + r;
+    if (d < m && d > 0) {
+      const nx = (e.x - rk.x) / d, ny = (e.y - rk.y) / d;
+      e.x = rk.x + nx * m; e.y = rk.y + ny * m;
+      const vn = e.vx * nx + e.vy * ny;
+      if (vn < 0) { e.vx -= vn * nx * 1.4; e.vy -= vn * ny * 1.4; }
+    }
+  }
+}
+
+/* =========================================================
+   船の更新
+   ========================================================= */
+function updateShip(dt) {
+  const s = G.ship;
+  let thrust = 0, turn = 0, brake = false;
+  if (G.demo) {
+    thrust = 0.85;
+    turn = 0.45 + 0.3 * Math.sin(G.t * 0.25);
+    if (s.x < 700) turn = 1;
+  } else if (state === 'play') {
+    thrust = (key('ArrowUp', 'KeyW') ? 1 : 0) - (key('ArrowDown', 'KeyS') ? 1 : 0);
+    turn = (key('ArrowRight', 'KeyD') ? 1 : 0) - (key('ArrowLeft', 'KeyA') ? 1 : 0);
+    brake = key('Space');
+  }
+
+  const fx = Math.cos(s.a), fy = Math.sin(s.a);
+  let vf = s.vx * fx + s.vy * fy;
+  let vl = -s.vx * fy + s.vy * fx;
+  vf += (thrust > 0 ? thrust * 75 : thrust * 42) * dt;
+  vf *= Math.max(0, 1 - 0.3 * dt);
+  vl *= Math.max(0, 1 - 1.6 * dt);
+  if (brake) {
+    vf *= Math.max(0, 1 - 1.7 * dt);
+    vl *= Math.max(0, 1 - 1.7 * dt);
+    s.av *= Math.max(0, 1 - 2.5 * dt);
+    if (!s.braking && s.speed > 110) {
+      // 急ブレーキ：船首から大きな波
+      s.braking = true;
+      addWave(s.x + fx * 150, s.y + fy * 150, 0.35 + 0.5 * s.speed / MAX_SPEED, 520);
+      Snd.brake();
+      pop(s.x + fx * 150, s.y + fy * 150 - 30, 'ギギギギ', '#ffd6a0', 26, 1);
+    }
+    if (s.speed > 40 && Math.random() < dt * 30) {
+      const b = toWorld(150, rand(-30, 30));
+      G.parts.push({ x: b.x, y: b.y, vx: fx * rand(40, 120) + rand(-40, 40), vy: fy * rand(40, 120) + rand(-40, 40), life: 0.7, max: 0.7, size: rand(3, 6), col: '#fff' });
+    }
+  } else s.braking = false;
+  vf = clamp(vf, -110, MAX_SPEED);
+  s.vx = vf * fx - vl * fy;
+  s.vy = vf * fy + vl * fx;
+
+  const turnEff = 0.6 + 0.4 * Math.min(1, Math.abs(vf) / 120);
+  s.av += turn * 1.4 * turnEff * dt;
+  s.av *= Math.max(0, 1 - 1.5 * dt);
+  s.a += s.av * dt;
+  s.x += s.vx * dt;
+  s.y += s.vy * dt;
+  s.speed = Math.hypot(s.vx, s.vy);
+
+  // 世界の端
+  const m = 170;
+  if (s.x > WORLD_W - m) { s.x = WORLD_W - m; s.vx = Math.min(0, s.vx); }
+  if (s.y < m) { s.y = m; s.vy = Math.max(0, s.vy); }
+  if (s.y > WORLD_H - m) { s.y = WORLD_H - m; s.vy = Math.min(0, s.vy); }
+
+  // 砂浜・岩との衝突
+  const pts = shipSamples();
+  let pen = 0;
+  const landPts = [];
+  for (const p of pts) {
+    const d = shoreX(p.y) - p.x;
+    if (d > 0) { pen = Math.max(pen, d); landPts.push(p); }
+  }
+  if (pen > 0) {
+    s.x += pen * 0.5;
+    if (s.vx < 0) s.vx *= 0.3;
+    if (!s.beached) {
+      s.beached = true;
+      if (s.speed > 30 || !G.demo) {
+        shake(12); Snd.gari();
+        pop(s.x, s.y - 70, 'ズザザザー', '#ffd6a0', 32, 1.3);
+        addMeiwaku(15, s.x, s.y, '救助船が砂浜に上陸した', 'beached');
+      }
+    }
+    s.beachT = 1;
+    for (const b of G.beach) {
+      if (landPts.some(p => dist(p.x, p.y, b.x, b.y) < (b.kind === 'shop' ? 180 : 110))) beachHit(b, 1, -1, true);
+    }
+  } else if (s.beachT > 0) {
+    s.beachT -= dt;
+    if (s.beachT <= 0) s.beached = false;
+  }
+  s.rockCd -= dt;
+  for (const rk of G.rocks) {
+    for (const p of pts) {
+      const d = dist(p.x, p.y, rk.x, rk.y);
+      if (d < rk.r) {
+        const nx = (p.x - rk.x) / (d || 1), ny = (p.y - rk.y) / (d || 1);
+        s.x += nx * (rk.r - d); s.y += ny * (rk.r - d);
+        const vn = s.vx * nx + s.vy * ny;
+        if (vn < 0) { s.vx -= vn * nx * 1.3; s.vy -= vn * ny * 1.3; }
+        if (s.rockCd <= 0) {
+          s.rockCd = 1.2;
+          Snd.gari(); shake(6);
+          pop(p.x, p.y - 20, 'ゴリッ', '#ddd', 26);
+          const v = G.victims.find(v => v.rock === rk && v.state === 'rock');
+          if (v) {
+            v.state = 'drown'; v.rock = null; v.selfMade = true;
+            v.vx = -nx * 120; v.vy = -ny * 120;
+            addMeiwaku(5, v.x, v.y, '岩にぶつかって岩の上の人を落とした', 'rockFall');
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  // 航跡の波
+  G.waveTimer -= dt;
+  if (s.speed > 30 && G.waveTimer <= 0) {
+    G.waveTimer = 0.22;
+    const ux = s.vx / s.speed, uy = s.vy / s.speed;
+    addWave(s.x + ux * 130, s.y + uy * 130, Math.pow(s.speed / MAX_SPEED, 1.3) * 0.9);
+  }
+  // 泡・煙
+  if (s.speed > 15 && Math.random() < dt * 25 * (s.speed / MAX_SPEED + 0.2)) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const p = toWorld(-150, side * rand(20, 45));
+    G.parts.push({ x: p.x, y: p.y, vx: rand(-15, 15), vy: rand(-15, 15), life: 1.6, max: 1.6, size: rand(4, 9), col: '#ffffff', grow: 6 });
+  }
+  G.smokeT -= dt;
+  if (G.smokeT <= 0) {
+    G.smokeT = 0.18;
+    const p = toWorld(-62, 0);
+    G.parts.push({ x: p.x, y: p.y, vx: rand(-10, 10) - s.vx * 0.3 + 12, vy: rand(-10, 10) - s.vy * 0.3 - 8, life: 2.2, max: 2.2, size: rand(6, 9), col: 'rgba(90,90,90,0.5)', grow: 8, smoke: true });
+  }
+
+  // 渦ゲージ：留まる・ぐるぐる回るとたまる
+  G.vortexCharge += dt * (s.speed < 40 ? 0.17 : -0.3) + Math.abs(s.av) * dt * 0.4;
+  G.vortexCharge = clamp(G.vortexCharge, 0, 1);
+  if (G.vortexCharge >= 1) { G.vortexCharge = 0; spawnVortex(); }
+}
+
+/* 船体の近く：押しのけ＆接触 */
+function shipProximity(dt) {
+  const s = G.ship;
+  const ux = s.speed > 1 ? s.vx / s.speed : 0, uy = s.speed > 1 ? s.vy / s.speed : 0;
+  const handle = (e, onContact) => {
+    const gap = hullGap(e.x, e.y);
+    if (gap > 130) return;
+    const d = dist(e.x, e.y, s.x, s.y) || 1;
+    const rx = (e.x - s.x) / d, ry = (e.y - s.y) / d;
+    if (s.speed > 25 && gap > 0) {
+      const f = (s.speed - 25) * (1 - gap / 130) * 2.4;
+      let dx = rx + ux * 0.6, dy = ry + uy * 0.6;
+      const dl = Math.hypot(dx, dy) || 1;
+      e.vx += dx / dl * f * dt; e.vy += dy / dl * f * dt;
+    }
+    if (gap < 8) {
+      onContact(rx, ry);
+      // 船体の外へ押し出す
+      if (!e.dead && e.state !== 'pulled') {
+        const push = 8 - gap;
+        e.x += rx * push; e.y += ry * push;
+        const vn = (e.vx - s.vx) * rx + (e.vy - s.vy) * ry;
+        if (vn < 0) { e.vx -= vn * rx; e.vy -= vn * ry; }
+      }
+    }
+  };
+  for (const v of G.victims) {
+    if (v.state !== 'drown' || v.z > 0) continue;
+    handle(v, (rx, ry) => {
+      if (v.hitCd > 0) return;
+      if (s.speed < SCOOP_SPEED && Math.abs(s.av) < 0.5) {
+        pop(v.x, v.y - 18, 'そっと回収', '#9ff5b8', 18, 1);
+        startPull(v, 'scoop');
+      } else {
+        v.hitCd = 1.2;
+        v.vx = s.vx * 1.1 + rx * 160; v.vy = s.vy * 1.1 + ry * 160;
+        v.vz = 260; v.z = 1; v.dazed = 2.5; v.bump = true;
+        Snd.don(); shake(6);
+        pop(v.x, v.y - 20, 'ドーン', '#ffb14d', 32, 1);
+        addMeiwaku(8, v.x, v.y, '要救助者を船体ではね飛ばした', 'rams');
+      }
+    });
+  }
+  for (const c of G.crafts) {
+    handle(c, (rx, ry) => {
+      if (c.capsized || c.cd > 0) return;
+      if (s.speed < SCOOP_SPEED) {
+        c.cd = 1.5;
+        bubble(c.x, c.y - 28, pick(['近い近い！', '壁が来た！', 'ぶつかる！']), 1.2);
+      } else {
+        c.vx = s.vx + rx * 180; c.vy = s.vy + ry * 180; c.av += 6;
+        Snd.don(); shake(8);
+        pop(c.x, c.y - 20, 'ドゴォ', '#ffb14d', 32, 1);
+        G.stats.rams++;
+        capsize(c, 15, '救助船で船をはね飛ばした');
+      }
+    });
+  }
+  for (const b of G.buoys) if (b.state === 'float') handle(b, () => {});
+}
+
+/* =========================================================
+   その他の更新
+   ========================================================= */
+function updateVictims(dt) {
+  const s = G.ship;
+  for (const v of G.victims) {
+    v.t += dt;
+    v.hitCd -= dt; v.pushCd -= dt;
+    if (v.dazed > 0) v.dazed -= dt;
+    if (v.state === 'pulled') { updatePulled(v, dt); continue; }
+    if (v.state === 'rock') { v.x = v.rock.x; v.y = v.rock.y - 8; }
+    else if (v.state === 'drown') {
+      if (v.z > 0 || v.vz > 0) {
+        v.x += v.vx * dt; v.y += v.vy * dt;
+        v.z += v.vz * dt; v.vz -= 700 * dt;
+        if (v.z <= 0) { v.z = 0; v.vz = 0; v.vx *= 0.4; v.vy *= 0.4; splash(v.x, v.y, 10, 90); Snd.splash(); keepInSea(v, v.rad); }
+      } else {
+        waterStep(v, dt, 1.3);
+      }
+    }
+    // セリフ
+    v.sayT -= dt; v.sayCd -= dt;
+    if (v.sayCd <= 0 && v.state !== 'held') {
+      v.sayCd = rand(2.5, 5);
+      const d = dist(v.x, v.y, s.x, s.y);
+      let pool = LINES.help;
+      if (v.dazed > 0) pool = LINES.dizzy;
+      else if (d < 500 && s.speed > 110) pool = LINES.scared;
+      else if (v.selfMade && Math.random() < 0.6) pool = LINES.selfMade;
+      else if (v.state === 'rock') pool = LINES.rock;
+      v.say = pick(pool); v.sayT = 1.8;
+    }
+  }
+  G.victims = G.victims.filter(v => !v.dead);
+}
+function updateCrafts(dt) {
+  for (const c of G.crafts) {
+    c.t += dt; c.cd -= dt;
+    waterStep(c, dt, 0.9);
+    c.a += c.av * dt; c.av *= Math.max(0, 1 - 1.2 * dt);
+    if (c.kind === 'surfer' && !c.capsized) { c.vx += Math.sin(c.t * 0.5) * 8 * dt; }
+    if (c.capsized) { c.capT += dt; if (c.capT > 25) c.dead = true; }
+  }
+  G.crafts = G.crafts.filter(c => !c.dead);
+}
+function updateBeach(dt) {
+  for (const p of G.beach) {
+    if (p.cd > 0) p.cd -= dt;
+    if (p.wet > 0) p.wet -= dt;
+    if (p.kind === 'sun') {
+      if (p.gone > 0) { p.gone -= dt; if (p.gone <= 0) { p.gone = 0; p.x = p.x0; p.y = p.y0; } }
+      if (p.flee > 0) { p.flee -= dt; p.x = Math.max(40, p.x - 70 * dt); }
+      else if (!p.gone && p.x < p.x0) p.x = Math.min(p.x0, p.x + 20 * dt);
+    } else if (p.kind === 'parasol' && p.blown) {
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += dt * 8;
+      if (p.z > 0) { p.z += p.vz * dt; p.vz -= 400 * dt; if (p.z <= 0) { p.z = 0; p.vx *= 0.2; p.vy *= 0.2; } }
+      p.respawn -= dt;
+      if (p.respawn <= 0) { p.blown = false; p.x = p.x0; p.y = p.y0; p.z = 0; p.rot = 0; }
+    } else if (p.kind === 'castle' && p.broken) {
+      p.rebuild -= dt;
+      if (p.rebuild <= 0) p.broken = false;
+    } else if (p.kind === 'shop' && p.crashed > 0) p.crashed -= dt;
+  }
+}
+function updateSpawns(dt) {
+  G.spawnT -= dt;
+  const need = G.victims.filter(v => v.state === 'drown' || v.state === 'rock' || v.state === 'held').length;
+  if (need < 5 && G.spawnT <= 0) {
+    G.spawnT = 2.2;
+    spawnVictim(Math.random() < 0.3);
+  }
+  G.craftT -= dt;
+  if (G.craftT <= 0) {
+    G.craftT = 6;
+    if (G.crafts.filter(c => !c.capsized).length < 7) spawnCraft(pick(['boat', 'boat', 'surfer', 'surfer', 'swan']));
+  }
+}
+function updateFx(dt) {
+  for (const p of G.parts) {
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vx *= Math.max(0, 1 - 2 * dt); p.vy *= Math.max(0, 1 - 2 * dt);
+    p.size += (p.grow || 0) * dt;
+    p.life -= dt;
+  }
+  G.parts = G.parts.filter(p => p.life > 0);
+  if (G.parts.length > 700) G.parts.splice(0, G.parts.length - 700);
+  for (const p of G.pops) { p.y += p.vy * dt; p.life -= dt; }
+  G.pops = G.pops.filter(p => p.life > 0);
+  for (const l of G.log) l.t -= dt;
+  G.log = G.log.filter(l => l.t > 0);
+  G.shake = Math.max(0, G.shake - dt * 30);
+}
+function updateCamera(k) {
+  const s = G.ship;
+  const tx = clamp(s.x + s.vx * 0.6 - W / 2, 0, WORLD_W - W);
+  const ty = clamp(s.y + s.vy * 0.6 - H / 2, 0, WORLD_H - H);
+  G.cam.x = lerp(G.cam.x, tx, k);
+  G.cam.y = lerp(G.cam.y, ty, k);
+}
+
+function update(dt) {
+  G.t += dt;
+  G.buoyCd -= dt; G.poleCd -= dt;
+  updateShip(dt);
+  shipProximity(dt);
+  updatePole(dt);
+  updateBuoys(dt);
+  updateVictims(dt);
+  updateCrafts(dt);
+  updateBeach(dt);
+  updateWaves(dt);
+  updateVortices(dt);
+  updateSpawns(dt);
+  updateFx(dt);
+  updateCamera(Math.min(1, dt * 3));
+
+  if (state === 'play') {
+    Snd.engineSet(G.ship.speed / MAX_SPEED);
+    const before = G.time;
+    G.time -= dt;
+    if (before > 10 && G.time <= 10) { log('残り10秒！'); Snd.horn(); }
+    if (G.time <= 0) {
+      G.time = 0;
+      setState('ending');
+    }
+  } else if (state === 'ending') {
+    G.endT += dt;
+    if (G.endT > 2.2) startConfront();
+  }
+}
+
+/* =========================================================
+   描画
+   ========================================================= */
+function drawSea() {
+  const cx = G.cam.x, cy = G.cam.y;
+  const g = ctx.createLinearGradient(cx, 0, cx + W, 0);
+  g.addColorStop(0, '#2a95c9'); g.addColorStop(1, '#1b6fa6');
+  ctx.fillStyle = g;
+  ctx.fillRect(cx - 20, cy - 20, W + 40, H + 40);
+  // 海面の模様
+  ctx.strokeStyle = 'rgba(255,255,255,0.13)';
+  ctx.lineWidth = 2;
+  const gx0 = Math.floor(cx / 90) * 90 - 90, gy0 = Math.floor(cy / 60) * 60 - 60;
+  ctx.beginPath();
+  for (let gy = gy0; gy < cy + H + 60; gy += 60) {
+    for (let gx = gx0; gx < cx + W + 90; gx += 90) {
+      const ox = ((gy / 60) % 2) * 45 + Math.sin(G.t * 0.8 + gy * 0.05 + gx * 0.01) * 10;
+      const x = gx + ox, y = gy + Math.cos(G.t * 0.6 + gx * 0.02) * 4;
+      ctx.moveTo(x - 12, y);
+      ctx.quadraticCurveTo(x - 6, y - 5, x, y);
+      ctx.quadraticCurveTo(x + 6, y - 5, x + 12, y);
+    }
+  }
+  ctx.stroke();
+}
+function drawBeach() {
+  const y0 = Math.max(0, G.cam.y - 40), y1 = Math.min(WORLD_H, G.cam.y + H + 40);
+  if (shoreX(0) + 200 < G.cam.x) return;
+  const shorePath = (off) => {
+    ctx.beginPath();
+    for (let y = y0; y <= y1 + 20; y += 20) ctx.lineTo(shoreX(y) + off(y), y);
+  };
+  // 浅瀬
+  ctx.lineWidth = 120; ctx.strokeStyle = 'rgba(140,230,235,0.35)';
+  shorePath(() => 40); ctx.stroke();
+  ctx.lineWidth = 50; ctx.strokeStyle = 'rgba(170,240,240,0.35)';
+  shorePath(() => 18); ctx.stroke();
+  // 砂浜
+  ctx.beginPath();
+  ctx.moveTo(-10, y0 - 20);
+  for (let y = y0 - 20; y <= y1 + 20; y += 20) ctx.lineTo(shoreX(y), y);
+  ctx.lineTo(-10, y1 + 20);
+  ctx.closePath();
+  ctx.fillStyle = '#f1dca5'; ctx.fill();
+  // 濡れた砂
+  ctx.lineWidth = 16; ctx.strokeStyle = '#dcc186';
+  shorePath(() => -6); ctx.stroke();
+  // 打ち寄せる泡
+  ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  shorePath(y => 4 + Math.sin(G.t * 1.8 + y * 0.02) * 6); ctx.stroke();
+  // 遊歩道
+  ctx.fillStyle = '#cfc6b1';
+  ctx.fillRect(0, y0 - 20, 56, y1 - y0 + 40);
+  ctx.strokeStyle = '#b7ad96'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let y = Math.floor(y0 / 40) * 40; y < y1; y += 40) { ctx.moveTo(0, y); ctx.lineTo(56, y); }
+  ctx.stroke();
+  // ヤシの木
+  for (const p of G.palms) {
+    if (p.y < y0 - 60 || p.y > y1 + 60) continue;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.s, p.s);
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.beginPath(); ctx.ellipse(8, 8, 26, 12, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#3f9e4d';
+    for (let i = 0; i < 6; i++) {
+      ctx.rotate(Math.PI / 3 + Math.sin(G.t + p.y) * 0.02);
+      ctx.beginPath(); ctx.ellipse(14, 0, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = '#7a5a33';
+    ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+}
+function drawRocks() {
+  for (const r of G.rocks) {
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r + 5 + Math.sin(G.t * 2 + r.seed) * 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#6d7079';
+    ctx.beginPath();
+    for (let i = 0; i < 9; i++) {
+      const a = i / 9 * Math.PI * 2, rr = r.r * (0.85 + 0.15 * Math.sin(i * 2.3 + r.seed));
+      ctx.lineTo(r.x + Math.cos(a) * rr, r.y + Math.sin(a) * rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#8c9099';
+    ctx.beginPath(); ctx.arc(r.x - r.r * 0.2, r.y - r.r * 0.25, r.r * 0.55, 0, Math.PI * 2); ctx.fill();
+  }
+}
+function drawWaves() {
+  for (const w of G.waves) {
+    const cur = w.str * (1 - w.r / w.maxR);
+    ctx.strokeStyle = `rgba(255,255,255,${clamp(cur * 1.1, 0, 0.85)})`;
+    ctx.lineWidth = 2 + cur * 12;
+    ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, Math.PI * 2); ctx.stroke();
+    if (cur > 0.25) {
+      ctx.strokeStyle = `rgba(20,80,130,${cur * 0.35})`;
+      ctx.lineWidth = 4 + cur * 8;
+      ctx.beginPath(); ctx.arc(w.x, w.y, Math.max(1, w.r - 10 - cur * 8), 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+}
+function drawVortices() {
+  for (const v of G.vortices) {
+    const k = v.k || 0;
+    const g = ctx.createRadialGradient(v.x, v.y, 0, v.x, v.y, v.r);
+    g.addColorStop(0, `rgba(5,30,70,${0.75 * k})`);
+    g.addColorStop(0.5, `rgba(10,60,110,${0.35 * k})`);
+    g.addColorStop(1, 'rgba(10,60,110,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(v.x, v.y, v.r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = `rgba(220,245,255,${0.55 * k})`;
+    ctx.lineWidth = 3;
+    for (let arm = 0; arm < 4; arm++) {
+      ctx.beginPath();
+      for (let r = 12; r < v.r * 0.95; r += 8) {
+        const a = v.rot + arm * Math.PI / 2 + r * 0.025;
+        ctx.lineTo(v.x + Math.cos(a) * r, v.y + Math.sin(a) * r);
+      }
+      ctx.stroke();
+    }
+  }
+}
+function drawParts(filterSmoke) {
+  for (const p of G.parts) {
+    if (!!p.smoke !== filterSmoke) continue;
+    const a = clamp(p.life / p.max, 0, 1);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = p.col;
+    if (p.star) {
+      drawStar(p.x, p.y, p.size + 2);
+    } else {
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+function drawStar(x, y, r) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * Math.PI * 2 - Math.PI / 2, rr = i % 2 ? r * 0.45 : r;
+    ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+// 人（上から見た図）
+function drawHead(x, y, o) {
+  ctx.fillStyle = o.skin;
+  ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+  if (o.cap) {
+    ctx.fillStyle = o.cap;
+    ctx.beginPath(); ctx.arc(x, y - 2, 8, Math.PI, 0); ctx.fill();
+  } else {
+    ctx.fillStyle = o.hair;
+    ctx.beginPath(); ctx.arc(x, y - 1, 8, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
+  }
+  // 顔
+  ctx.fillStyle = '#222';
+  if (o.dazed) {
+    ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('x', x - 3, y + 1); ctx.fillText('x', x + 3, y + 1);
+  } else {
+    ctx.beginPath(); ctx.arc(x - 3, y + 1, 1.3, 0, Math.PI * 2); ctx.arc(x + 3, y + 1, 1.3, 0, Math.PI * 2); ctx.fill();
+  }
+  if (o.mouth) { ctx.beginPath(); ctx.arc(x, y + 4.5, 1.6, 0, Math.PI * 2); ctx.fill(); }
+  if (o.bump) {
+    ctx.fillStyle = '#ff8fa3';
+    ctx.beginPath(); ctx.arc(x + 4, y - 7, 3.2, 0, Math.PI * 2); ctx.fill();
+  }
+}
+function drawVictim(v) {
+  const bob = Math.sin(v.t * 4) * 1.5;
+  const x = v.x, y = v.y - v.z;
+  if (v.z > 0) {
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(v.x, v.y, 10, 5, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  const inWater = v.state === 'drown' && v.z <= 0 || v.state === 'held';
+  if (inWater) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(x, y + 3, 15 + Math.sin(v.t * 5) * 1.5, 8, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  // 腕
+  if (v.state === 'drown' || v.state === 'rock') {
+    const wave = Math.sin(v.t * 9) * 0.6;
+    ctx.strokeStyle = v.skin; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x - 6, y + bob); ctx.lineTo(x - 12 + wave * 4, y - 12 + bob);
+    ctx.moveTo(x + 6, y + bob); ctx.lineTo(x + 12 - wave * 4, y - 12 + bob);
+    ctx.stroke();
+  }
+  drawHead(x, y + bob, { skin: v.skin, hair: v.hair, cap: v.cap, dazed: v.dazed > 0, mouth: v.state !== 'pulled', bump: v.bump });
+  if (v.dazed > 0) {
+    ctx.fillStyle = '#ffe14d';
+    for (let i = 0; i < 3; i++) {
+      const a = G.t * 5 + i * Math.PI * 2 / 3;
+      drawStar(x + Math.cos(a) * 13, y - 10 + Math.sin(a) * 4, 3.5);
+    }
+  }
+  // 要救助マーク
+  if ((v.state === 'drown' || v.state === 'rock') && v.dazed <= 0) {
+    const yy = y - 26 + Math.sin(G.t * 6) * 2;
+    ctx.fillStyle = v.selfMade ? '#ff9f43' : '#ff4757';
+    ctx.beginPath(); ctx.arc(x, yy, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = `bold 11px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('!', x, yy + 0.5);
+  }
+  if (v.sayT > 0 && v.say && v.state !== 'pulled') drawBubble(x, y - 44, v.say, Math.min(1, v.sayT * 2), 12);
+}
+function drawBubble(x, y, text, alpha, size = 14) {
+  ctx.globalAlpha = alpha;
+  ctx.font = `bold ${size}px ${FONT}`;
+  const w = ctx.measureText(text).width + 14, h = size + 10;
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1b2a3a'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(x - w / 2, y - h / 2, w, h, 8) : ctx.rect(x - w / 2, y - h / 2, w, h);
+  ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - 5, y + h / 2 - 1); ctx.lineTo(x, y + h / 2 + 7); ctx.lineTo(x + 5, y + h / 2 - 1); ctx.fill();
+  ctx.fillStyle = '#1b2a3a'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y + 1);
+  ctx.globalAlpha = 1;
+}
+function drawCraft(c) {
+  ctx.save();
+  ctx.translate(c.x, c.y);
+  const rock = Math.sin(c.t * 2) * 0.06;
+  ctx.rotate(c.a + rock);
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(0, 0, c.rad + 8, c.rad * 0.6 + 4, 0, 0, Math.PI * 2); ctx.stroke();
+  if (c.kind === 'boat') {
+    ctx.fillStyle = c.capsized ? '#5c3b22' : c.col;
+    ctx.beginPath(); ctx.moveTo(-22, -9); ctx.lineTo(12, -10); ctx.quadraticCurveTo(26, 0, 12, 10); ctx.lineTo(-22, 9); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#3e2714'; ctx.lineWidth = 2; ctx.stroke();
+    if (c.capsized) {
+      ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(18, 0); ctx.stroke();
+    } else {
+      ctx.fillStyle = '#e6c79a'; ctx.fillRect(-18, -6, 26, 12);
+      ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(-40, -28); ctx.stroke();
+      ctx.rotate(-c.a - rock);
+      drawHead(0, 0, { skin: c.skin, hair: c.hair, cap: '#2d5f8a' });
+    }
+  } else if (c.kind === 'swan') {
+    ctx.fillStyle = c.capsized ? '#d9d9d9' : '#ffffff';
+    ctx.beginPath(); ctx.ellipse(0, 0, 22, 15, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#999'; ctx.lineWidth = 1.5; ctx.stroke();
+    if (!c.capsized) {
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(22, 0, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ff9f1a'; ctx.beginPath(); ctx.moveTo(28, -3); ctx.lineTo(36, 0); ctx.lineTo(28, 3); ctx.fill();
+      ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(24, -3, 1.3, 0, Math.PI * 2); ctx.fill();
+      ctx.rotate(-c.a - rock);
+      drawHead(-6, -6, { skin: c.skin, hair: c.hair });
+      drawHead(-6, 8, { skin: '#f7d9bd', hair: '#7a2f1b' });
+    } else {
+      ctx.fillStyle = '#bbb'; ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+    }
+  } else if (c.kind === 'surfer') {
+    ctx.fillStyle = c.board;
+    ctx.beginPath(); ctx.ellipse(0, 0, 22, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.stroke();
+    if (!c.capsized) {
+      ctx.fillStyle = '#222'; ctx.fillRect(-12, -4, 14, 8);
+      ctx.rotate(-c.a - rock);
+      drawHead(Math.cos(c.a) * 8, Math.sin(c.a) * 8, { skin: c.skin, hair: c.hair });
+    }
+  }
+  ctx.restore();
+}
+function drawBeachProps() {
+  for (const p of G.beach) {
+    if (p.y < G.cam.y - 100 || p.y > G.cam.y + H + 100) continue;
+    if (p.kind === 'sun' && !p.gone) {
+      ctx.save(); ctx.translate(p.x, p.y);
+      if (!p.flee) {
+        ctx.fillStyle = p.suit; ctx.globalAlpha = 0.85;
+        ctx.fillRect(-8, -18, 16, 36); ctx.globalAlpha = 1;
+        ctx.fillStyle = p.skin;
+        ctx.beginPath(); ctx.ellipse(0, 4, 5, 11, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      drawHead(0, -9, { skin: p.skin, hair: p.hair, mouth: p.wet > 0 || p.flee > 0 });
+      if (p.wet > 0) {
+        ctx.fillStyle = '#5fc3ff';
+        for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(-10 + i * 10, -22 - ((G.t * 30 + i * 7) % 10), 2, 0, Math.PI * 2); ctx.fill(); }
+      }
+      ctx.restore();
+    } else if (p.kind === 'parasol') {
+      ctx.save(); ctx.translate(p.x, p.y - p.z); ctx.rotate(p.rot);
+      if (p.z > 0) { ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.beginPath(); ctx.arc(0, p.z, 18, 0, Math.PI * 2); ctx.fill(); }
+      for (let i = 0; i < 8; i++) {
+        ctx.fillStyle = i % 2 ? '#fff' : p.col;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 20, i / 8 * Math.PI * 2, (i + 1) / 8 * Math.PI * 2); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    } else if (p.kind === 'castle') {
+      ctx.save(); ctx.translate(p.x, p.y);
+      if (p.broken) {
+        ctx.fillStyle = '#d9bf85';
+        ctx.beginPath(); ctx.ellipse(0, 0, 18, 10, 0, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.fillStyle = '#d4b06b'; ctx.fillRect(-14, -14, 28, 28);
+        ctx.fillStyle = '#c29a55';
+        for (const [cx, cy] of [[-14, -14], [14, -14], [-14, 14], [14, 14]]) { ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill(); }
+        ctx.fillStyle = '#e0bf7d'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#555'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -16); ctx.stroke();
+        ctx.fillStyle = '#e84a3c'; ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(9, -13); ctx.lineTo(0, -10); ctx.fill();
+      }
+      drawHead(-26, 4, { skin: p.skin, hair: '#2b1d14', cap: '#ffd43b', mouth: p.broken });
+      ctx.restore();
+    } else if (p.kind === 'shop') {
+      ctx.save(); ctx.translate(p.x, p.y);
+      const sh = p.crashed > 0 ? Math.sin(G.t * 60) * 2 : 0;
+      ctx.translate(sh, 0);
+      ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(-58, -40, 124, 88);
+      ctx.fillStyle = '#b5673a'; ctx.fillRect(-62, -46, 124, 92);
+      ctx.fillStyle = '#d98b52';
+      for (let i = 0; i < 6; i++) ctx.fillRect(-62, -46 + i * 16, 124, 7);
+      ctx.fillStyle = '#fff'; ctx.fillRect(-44, -16, 88, 32);
+      ctx.strokeStyle = '#1b2a3a'; ctx.lineWidth = 2; ctx.strokeRect(-44, -16, 88, 32);
+      ctx.fillStyle = '#1b2a3a'; ctx.font = `bold 20px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('海の家', 0, 1);
+      // 氷の旗
+      ctx.fillStyle = '#fff'; ctx.fillRect(66, -30, 22, 26);
+      ctx.strokeStyle = '#3aa0ff'; ctx.lineWidth = 2; ctx.strokeRect(66, -30, 22, 26);
+      ctx.fillStyle = '#e84a3c'; ctx.font = `bold 16px ${FONT}`; ctx.fillText('氷', 77, -16);
+      if (p.wet > 0) {
+        ctx.fillStyle = `rgba(90,190,255,${Math.min(0.45, p.wet * 0.15)})`;
+        ctx.fillRect(-62, -46, 124, 92);
+      }
+      ctx.restore();
+    }
+  }
+}
+function drawBuoy(b) {
+  const x = b.x, y = b.y - b.z;
+  if (b.z > 0) {
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(b.x, b.y, 10, 5, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.lineWidth = 6;
+  for (let i = 0; i < 4; i++) {
+    ctx.strokeStyle = i % 2 ? '#fff' : '#ff6a1a';
+    ctx.beginPath(); ctx.arc(x, y, 10, b.rot + i * Math.PI / 2, b.rot + (i + 1) * Math.PI / 2); ctx.stroke();
+  }
+}
+function hullPath() {
+  ctx.beginPath();
+  ctx.moveTo(-150, -48); ctx.lineTo(40, -56);
+  ctx.quadraticCurveTo(125, -52, 158, 0);
+  ctx.quadraticCurveTo(125, 52, 40, 56);
+  ctx.lineTo(-150, 48);
+  ctx.quadraticCurveTo(-158, 0, -150, -48);
+  ctx.closePath();
+}
+function drawShip() {
+  const s = G.ship, sp = s.speed / MAX_SPEED;
+  ctx.save();
+  ctx.translate(s.x, s.y); ctx.rotate(s.a);
+  // 押しのける水
+  ctx.fillStyle = `rgba(255,255,255,${0.12 + sp * 0.35})`;
+  ctx.beginPath(); ctx.ellipse(8, 0, 172 + sp * 25, 72 + sp * 14, 0, 0, Math.PI * 2); ctx.fill();
+  // 影
+  ctx.save(); ctx.translate(8, 10); hullPath(); ctx.fillStyle = 'rgba(0,25,50,0.3)'; ctx.fill(); ctx.restore();
+  // 船体
+  hullPath(); ctx.fillStyle = '#c8372d'; ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = '#6e1a13'; ctx.stroke();
+  // 甲板
+  ctx.save(); ctx.scale(0.93, 0.84); hullPath(); ctx.fillStyle = '#f3efe6'; ctx.fill(); ctx.restore();
+  // 甲板の赤十字（救助者デッキ）
+  ctx.fillStyle = 'rgba(216,65,47,0.25)';
+  ctx.fillRect(70, -8, 50, 16); ctx.fillRect(87, -25, 16, 50);
+  // 側面の浮き輪
+  for (let x = -130; x <= 50; x += 30) {
+    for (const yy of [-42, 42]) {
+      ctx.strokeStyle = '#ff6a1a'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(x, yy, 5, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+  // ヘリポート
+  ctx.strokeStyle = '#f2b33d'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(-115, 0, 24, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#f2b33d'; ctx.font = `bold 24px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.save(); ctx.translate(-115, 0); ctx.rotate(Math.PI / 2); ctx.fillText('H', 0, 1); ctx.restore();
+  // 煙突
+  ctx.fillStyle = '#f07b22'; ctx.beginPath(); ctx.arc(-62, 0, 17, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-62, 0, 10, 0, Math.PI * 2); ctx.fill();
+  // ブリッジ
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(-36, -30, 76, 66);
+  ctx.fillStyle = '#dfe3e8'; ctx.fillRect(-40, -34, 76, 68);
+  ctx.strokeStyle = '#8a95a3'; ctx.lineWidth = 2; ctx.strokeRect(-40, -34, 76, 68);
+  ctx.fillStyle = '#2f4a66'; ctx.fillRect(30, -30, 6, 60);
+  ctx.fillStyle = '#d8412f'; ctx.font = `bold 15px ${FONT}`;
+  ctx.fillText('たすけぶね', -2, 1);
+  // レーダー
+  ctx.strokeStyle = '#555'; ctx.lineWidth = 3;
+  const ra = G.t * 3;
+  ctx.beginPath(); ctx.moveTo(-25 - Math.cos(ra) * 9, -20 - Math.sin(ra) * 9); ctx.lineTo(-25 + Math.cos(ra) * 9, -20 + Math.sin(ra) * 9); ctx.stroke();
+  // 救助棒の基部
+  ctx.fillStyle = '#444'; ctx.beginPath(); ctx.arc(140, 0, 5, 0, Math.PI * 2); ctx.fill();
+  // 救助した人たち
+  s.deck.forEach((p, i) => {
+    if (i >= DECK_SLOTS.length) return;
+    const [dx, dy] = DECK_SLOTS[i];
+    ctx.save(); ctx.translate(dx, dy); ctx.rotate(-s.a); ctx.scale(0.75, 0.75);
+    drawHead(0, 0, { skin: p.skin, hair: p.hair, cap: p.cap, bump: p.bump });
+    ctx.restore();
+  });
+  ctx.restore();
+}
+function drawPole() {
+  const P = G.pole;
+  if (!P.active) return;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 9;
+  ctx.beginPath(); ctx.moveTo(P.ox, P.oy); ctx.lineTo(P.tx, P.ty); ctx.stroke();
+  ctx.strokeStyle = '#ffd43b'; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(P.ox, P.oy); ctx.lineTo(P.tx, P.ty); ctx.stroke();
+  ctx.setLineDash([10, 10]); ctx.strokeStyle = '#222';
+  ctx.beginPath(); ctx.moveTo(P.ox, P.oy); ctx.lineTo(P.tx, P.ty); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = '#555'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(P.tx + Math.cos(P.ang) * 6, P.ty + Math.sin(P.ang) * 6, 8, P.ang - Math.PI * 0.2, P.ang + Math.PI * 1.1); ctx.stroke();
+}
+function drawRopes() {
+  const s = G.ship;
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2;
+  for (const b of G.buoys) {
+    if (b.state !== 'reel' && b.state !== 'fly') continue;
+    const e = hullEdge(Math.atan2(b.y - s.y, b.x - s.x));
+    ctx.beginPath(); ctx.moveTo(e.x, e.y);
+    const mx = (e.x + b.x) / 2, my = (e.y + b.y - b.z) / 2 + (b.state === 'fly' ? -20 : 10);
+    ctx.quadraticCurveTo(mx, my, b.x, b.y - b.z); ctx.stroke();
+  }
+}
+function drawPops() {
+  for (const p of G.pops) {
+    const a = clamp(p.life / p.max * 2, 0, 1);
+    if (p.bubble) { drawBubble(p.x, p.y, p.text, a, p.size); continue; }
+    if (!p.text) continue;
+    const grow = 1 + Math.max(0, (p.life - p.max + 0.15)) * 3;
+    ctx.globalAlpha = a;
+    ctx.font = `900 ${p.size * grow}px ${FONT}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 5; ctx.strokeStyle = '#1b2a3a'; ctx.lineJoin = 'round';
+    ctx.strokeText(p.text, p.x, p.y);
+    ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawWorld() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const sx = G.shake ? rand(-G.shake, G.shake) * 0.5 : 0, sy = G.shake ? rand(-G.shake, G.shake) * 0.5 : 0;
+  ctx.save();
+  ctx.translate(-Math.round(G.cam.x) + sx, -Math.round(G.cam.y) + sy);
+  drawSea();
+  drawVortices();
+  drawBeach();
+  drawRocks();
+  drawWaves();
+  drawParts(false);
+  drawBeachProps();
+  for (const c of G.crafts) drawCraft(c);
+  for (const b of G.buoys) if (b.state !== 'fly') drawBuoy(b);
+  for (const v of G.victims) if (v.state !== 'pulled' && v.z <= 0) drawVictim(v);
+  drawShip();
+  drawParts(true);
+  drawRopes();
+  drawPole();
+  for (const b of G.buoys) if (b.state === 'fly') drawBuoy(b);
+  for (const v of G.victims) if (v.state === 'pulled' || v.z > 0) drawVictim(v);
+  drawPops();
+  ctx.restore();
+}
+
+/* ---------- HUD ---------- */
+function panel(x, y, w, h, fill) {
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  roundRect(x + 3, y + 3, w, h, 10); ctx.fill();
+  ctx.fillStyle = fill; roundRect(x, y, w, h, 10); ctx.fill();
+  ctx.strokeStyle = '#1b2a3a'; ctx.lineWidth = 3; ctx.stroke();
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+}
+function text(t, x, y, size, color, align = 'left', weight = 800) {
+  ctx.font = `${weight} ${size}px ${FONT}`;
+  ctx.textAlign = align; ctx.textBaseline = 'middle';
+  ctx.fillStyle = color; ctx.fillText(t, x, y);
+}
+function drawHUD() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const st = G.stats, s = G.ship;
+
+  // 画面外の要救助者を示す矢印
+  for (const v of G.victims) {
+    if (v.state !== 'drown' && v.state !== 'rock') continue;
+    const x = v.x - G.cam.x, y = v.y - G.cam.y;
+    if (x > 0 && x < W && y > 0 && y < H) continue;
+    const cx = clamp(x, 26, W - 26), cy = clamp(y, 76, H - 60);
+    const a = Math.atan2(y - cy, x - cx);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(a);
+    ctx.fillStyle = v.selfMade ? '#ff9f43' : '#ff4757';
+    ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-8, -10); ctx.lineTo(-8, 10); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
+  }
+
+  // 上部
+  panel(14, 12, 196, 52, '#dff3e6');
+  text('救助', 28, 38, 16, '#16623a');
+  text(`${st.rescued}`, 150, 37, 34, '#16623a', 'right', 900);
+  text('名', 158, 40, 16, '#16623a');
+  text('善意 100%', 112, 74, 12, '#ffffff', 'center', 700);
+
+  panel(W - 230, 12, 216, 52, '#fde2dc');
+  text('はた迷惑', W - 216, 38, 16, '#a3261a');
+  text(`${st.meiwaku}`, W - 30, 37, 34, '#a3261a', 'right', 900);
+
+  const tl = Math.ceil(G.time);
+  const warn = G.time <= 10 && Math.floor(G.t * 4) % 2 === 0;
+  panel(W / 2 - 70, 12, 140, 52, warn ? '#ffd6a0' : '#fbf6ea');
+  text('残り', W / 2 - 52, 38, 14, '#1b2a3a');
+  text(`${tl}`, W / 2 + 30, 37, 34, warn ? '#d8412f' : '#1b2a3a', 'right', 900);
+  text('秒', W / 2 + 36, 40, 14, '#1b2a3a');
+
+  // 下部：速力・渦・浮き輪
+  panel(14, H - 66, 300, 54, 'rgba(251,246,234,0.92)');
+  text('速力', 26, H - 51, 12, '#1b2a3a');
+  const spd = s.speed / MAX_SPEED;
+  ctx.fillStyle = '#ddd'; ctx.fillRect(64, H - 57, 160, 12);
+  ctx.fillStyle = spd * MAX_SPEED < SCOOP_SPEED ? '#2e9d5b' : spd > 0.5 ? '#d8412f' : '#f2b33d';
+  ctx.fillRect(64, H - 57, 160 * spd, 12);
+  ctx.strokeStyle = '#1b2a3a'; ctx.lineWidth = 1.5; ctx.strokeRect(64, H - 57, 160, 12);
+  ctx.fillStyle = '#1b2a3a'; ctx.fillRect(64 + 160 * SCOOP_SPEED / MAX_SPEED, H - 60, 2, 18);
+  text(spd * MAX_SPEED < SCOOP_SPEED ? 'そっと' : spd > 0.5 ? '暴走' : '迷惑', 232, H - 51, 12, '#1b2a3a');
+
+  text('渦', 26, H - 29, 12, '#1b2a3a');
+  const vc = G.vortexCharge;
+  ctx.fillStyle = '#ddd'; ctx.fillRect(64, H - 35, 160, 12);
+  ctx.fillStyle = vc > 0.7 ? (Math.floor(G.t * 8) % 2 ? '#3a4dff' : '#1b2a8a') : '#4a7fd6';
+  ctx.fillRect(64, H - 35, 160 * vc, 12);
+  ctx.strokeRect(64, H - 35, 160, 12);
+  if (vc > 0.7) text('渦注意', 232, H - 29, 12, '#1b2a8a');
+
+  const bOK = G.buoyCd <= 0;
+  ctx.strokeStyle = bOK ? '#ff6a1a' : '#bbb'; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.arc(292, H - 40, 11, 0, Math.PI * 2); ctx.stroke();
+
+  // イベントログ
+  let ly = H - 24;
+  for (const l of G.log) {
+    ctx.globalAlpha = clamp(l.t, 0, 1);
+    ctx.font = `700 13px ${FONT}`;
+    const w = ctx.measureText(l.text).width + 16;
+    ctx.fillStyle = 'rgba(10,30,50,0.7)';
+    roundRect(W - 14 - w, ly - 11, w, 22, 6); ctx.fill();
+    text(l.text, W - 22, ly, 13, '#fff', 'right', 700);
+    ly -= 26;
+  }
+  ctx.globalAlpha = 1;
+
+  // 照準
+  if (mouse.in && state === 'play') {
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 12, 0, Math.PI * 2);
+    ctx.moveTo(mouse.x - 18, mouse.y); ctx.lineTo(mouse.x - 6, mouse.y);
+    ctx.moveTo(mouse.x + 6, mouse.y); ctx.lineTo(mouse.x + 18, mouse.y);
+    ctx.moveTo(mouse.x, mouse.y - 18); ctx.lineTo(mouse.x, mouse.y - 6);
+    ctx.moveTo(mouse.x, mouse.y + 6); ctx.lineTo(mouse.x, mouse.y + 18);
+    ctx.stroke();
+  }
+
+  // 最初の数秒はヒント
+  if (state === 'play' && G.t < 5) {
+    ctx.globalAlpha = clamp(5 - G.t, 0, 1);
+    text('ゆっくり近づいて助けよう。速いと波で流れていく。', W / 2, 96, 18, '#fff', 'center', 800);
+    ctx.globalAlpha = 1;
+  }
+  if (state === 'paused') {
+    ctx.fillStyle = 'rgba(0,20,40,0.55)'; ctx.fillRect(0, 0, W, H);
+    text('一時停止中', W / 2, H / 2 - 20, 44, '#fff', 'center', 900);
+    text('Esc / クリックで再開　　Q でタイトルへ', W / 2, H / 2 + 28, 16, '#fff', 'center', 700);
+  }
+  if (state === 'ending') {
+    const k = Math.min(1, G.endT * 3);
+    ctx.globalAlpha = k;
+    ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(0.8 + k * 0.2, 0.8 + k * 0.2);
+    ctx.font = `900 64px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 10; ctx.strokeStyle = '#1b2a3a'; ctx.lineJoin = 'round';
+    ctx.strokeText('訓練終了', 0, 0);
+    ctx.fillStyle = '#fff'; ctx.fillText('訓練終了', 0, 0);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+  if (Snd.muted) text('消音中 (M)', W / 2, 76, 12, '#fff', 'center', 700);
+}
+
+/* =========================================================
+   オチ：訓練終了後、参加者たちが詰め寄る
+   ========================================================= */
+const ANGRY = ['訓練だって言ったよね!?', '本気の波やめろ！', '三途の川が見えた！', 'この船だれが呼んだ！', 'なんで渦が出るの！', '溺れ役が本当に溺れた！', '救命胴衣の意味なかった！', '来年は出ない！'];
+function startConfront() {
+  const pool = G.ship.deck.map(p => Object.assign({}, p));
+  // 救助しきれなかった参加者も、訓練なので全員自力で上がってきた
+  for (const v of G.victims) if (v.state !== 'pulled') pool.push({ skin: v.skin, hair: v.hair, cap: v.cap, bump: v.bump });
+  while (pool.length < 7) pool.push({ skin: pick(SKINS), hair: pick(HAIRS), cap: null, bump: Math.random() < 0.3 });
+  const n = Math.min(pool.length, 14);
+  const people = [];
+  const cx = W / 2, cy = 420;
+  for (let i = 0; i < n; i++) {
+    // 手前側だけ空けて、船長をぐるりと囲む
+    const a = Math.PI / 2 + 0.75 + (i / (n - 1)) * (Math.PI * 2 - 1.5);
+    const row = i % 2;
+    const rx = 215 + row * 70, ry = 105 + row * 30;
+    const tx = cx + Math.cos(a) * rx, ty = cy + Math.sin(a) * ry;
+    people.push(Object.assign(pool[i], {
+      tx, ty, sx: tx < cx ? -80 - rand(0, 120) : W + 80 + rand(0, 120), sy: ty + rand(-30, 30),
+      delay: 1.1 + i * 0.07, say: '', sayT: 0, sayCd: rand(1.2, 3.5), suit: pick(SUITS),
+    }));
+  }
+  const st = G.stats;
+  const extra = [];
+  if (st.bonks) extra.push('たんこぶできたぞ！');
+  if (st.bofu) extra.push('浮き輪が顔に来た！');
+  if (st.selfRescued) extra.push('見学者まで落とすな！');
+  if (st.vortex) extra.push('目が回った！');
+  G.cf = { t: 0, people, lines: ANGRY.concat(extra), shouted: 0, crowd: false, shake: 0 };
+  setState('confront');
+}
+function updateConfront(dt) {
+  const cf = G.cf;
+  cf.t += dt;
+  updateFx(dt);
+  if (!cf.crowd && cf.t > 1.1) { cf.crowd = true; Snd.crowd(); }
+  if (cf.shouted === 0 && cf.t > 1.9) { cf.shouted = 1; Snd.shout(); cf.shake = 10; }
+  if (cf.shouted === 1 && cf.t > 2.6) { cf.shouted = 2; Snd.shout(); cf.shake = 10; }
+  cf.shake = Math.max(0, cf.shake - dt * 30);
+  for (const p of cf.people) {
+    p.sayT -= dt;
+    if (cf.t > 3.2) {
+      p.sayCd -= dt;
+      if (p.sayCd <= 0) { p.sayCd = rand(2.2, 4); p.say = pick(cf.lines); p.sayT = 1.6; }
+    }
+  }
+  if (cf.t > 10) showResult();
+}
+function drawAnger(x, y, s = 1) {
+  ctx.strokeStyle = '#e8262a'; ctx.lineWidth = 3 * s; ctx.lineCap = 'round';
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2 + Math.PI / 4;
+    const px = x + Math.cos(a) * 6 * s, py = y + Math.sin(a) * 6 * s;
+    ctx.beginPath();
+    ctx.arc(px + Math.cos(a) * 4 * s, py + Math.sin(a) * 4 * s, 4 * s, a + Math.PI * 0.6, a + Math.PI * 1.4);
+    ctx.stroke();
+  }
+}
+function drawCfPerson(x, y, o, sc, angry, t) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath(); ctx.ellipse(0, 26, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
+  // 体
+  ctx.fillStyle = o.skin;
+  ctx.beginPath(); ctx.ellipse(0, 8, 11, 18, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = o.suit || '#3aa0ff';
+  ctx.fillRect(-11, 6, 22, 12);
+  // 振り上げた腕
+  const w = angry ? Math.sin(t * 14 + x) * 0.5 : 0;
+  ctx.strokeStyle = o.skin; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-9, 0); ctx.lineTo(-18, angry ? -16 + w * 8 : 12);
+  ctx.moveTo(9, 0); ctx.lineTo(18, angry ? -16 - w * 8 : 12);
+  ctx.stroke();
+  if (angry) {
+    ctx.fillStyle = o.skin;
+    ctx.beginPath(); ctx.arc(-18, -18 + w * 8, 4, 0, Math.PI * 2); ctx.arc(18, -18 - w * 8, 4, 0, Math.PI * 2); ctx.fill();
+  }
+  drawHead(0, -14, { skin: o.skin, hair: o.hair, cap: o.cap, mouth: true, bump: o.bump });
+  // ずぶ濡れのしずく
+  ctx.fillStyle = '#5fc3ff';
+  for (let i = 0; i < 2; i++) {
+    const dy = (t * 40 + i * 13 + x) % 26;
+    ctx.beginPath(); ctx.arc(-12 + i * 24, -8 + dy, 2, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+  if (angry) drawAnger(x + 14 * sc, y - 30 * sc, sc * 0.8);
+}
+function drawCaptain(x, y, t) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(2, 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath(); ctx.ellipse(0, 28, 18, 5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1f3a5f';
+  ctx.beginPath(); ctx.ellipse(0, 8, 13, 20, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#f2b33d'; ctx.fillRect(-2, -2, 4, 4); ctx.fillRect(-2, 6, 4, 4);
+  ctx.fillStyle = '#f5cfa6';
+  ctx.beginPath(); ctx.arc(0, -14, 9, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(0, -21, 11, 5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1b2a3a'; ctx.fillRect(-9, -20, 18, 3);
+  ctx.fillStyle = '#f2b33d'; ctx.beginPath(); ctx.arc(0, -22, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.arc(-3, -13, 1.2, 0, Math.PI * 2); ctx.arc(3, -13, 1.2, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(0, -8, 3, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); // 苦笑い
+  // 汗
+  if (t > 2) {
+    ctx.fillStyle = '#7fd3ff';
+    for (let i = 0; i < 3; i++) {
+      const k = (t * 1.5 + i / 3) % 1;
+      ctx.globalAlpha = 1 - k;
+      ctx.beginPath(); ctx.arc(11 + i * 3, -18 + k * 14, 1.8, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+function drawBigShout(str, x, y, rot, t0, t) {
+  if (t < t0) return;
+  const k = Math.min(1, (t - t0) * 6);
+  const sc = 1.5 - 0.5 * k;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc);
+  ctx.globalAlpha = k;
+  ctx.font = `900 50px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 16; ctx.strokeStyle = '#fff'; ctx.strokeText(str, 0, 0);
+  ctx.lineWidth = 6; ctx.strokeStyle = '#1b2a3a'; ctx.strokeText(str, 0, 0);
+  ctx.fillStyle = '#e8262a'; ctx.fillText(str, 0, 0);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+function drawConfront() {
+  const cf = G.cf, t = cf.t;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const shx = cf.shake ? rand(-cf.shake, cf.shake) : 0, shy = cf.shake ? rand(-cf.shake, cf.shake) : 0;
+  ctx.save(); ctx.translate(shx, shy);
+  // 桟橋
+  ctx.fillStyle = '#c9a36b'; ctx.fillRect(-20, 0, W + 40, H + 20);
+  ctx.strokeStyle = '#a7834f'; ctx.lineWidth = 2;
+  for (let y = 190; y < H + 20; y += 34) { ctx.beginPath(); ctx.moveTo(-20, y); ctx.lineTo(W + 20, y); ctx.stroke(); }
+  // 背後にそびえる「たすけぶね」
+  ctx.fillStyle = '#c8372d'; ctx.fillRect(-20, -20, W + 40, 200);
+  ctx.fillStyle = '#f3efe6'; ctx.fillRect(-20, -20, W + 40, 70);
+  ctx.fillStyle = '#6e1a13'; ctx.fillRect(-20, 172, W + 40, 10);
+  ctx.fillStyle = '#1b2a3a';
+  for (let x = 30; x < W; x += 70) { ctx.beginPath(); ctx.arc(x, 20, 11, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = '#fff'; ctx.font = `900 64px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('た す け ぶ ね', W / 2, 118);
+  for (let x = 60; x < W; x += 180) {
+    ctx.strokeStyle = '#ff6a1a'; ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.arc(x, 150, 12, 0, Math.PI * 2); ctx.stroke();
+  }
+  // 横断幕
+  ctx.fillStyle = '#fff'; ctx.fillRect(W / 2 - 170, 200, 340, 34);
+  ctx.strokeStyle = '#1b2a3a'; ctx.lineWidth = 2; ctx.strokeRect(W / 2 - 170, 200, 340, 34);
+  ctx.fillStyle = '#1b2a3a'; ctx.font = `800 17px ${FONT}`; ctx.textAlign = 'center';
+  ctx.fillText('第12回 港町海難救助訓練', W / 2, 218);
+
+  // 参加者（奥から順に描く）
+  const items = cf.people.slice().sort((a, b) => a.ty - b.ty).map(p => {
+    const k = clamp((t - p.delay) / 0.8, 0, 1), e = 1 - (1 - k) ** 3;
+    const arrived = k >= 1;
+    const jig = arrived ? Math.abs(Math.sin(t * 9 + p.tx)) * 5 : Math.abs(Math.sin(t * 16 + p.tx)) * 8;
+    return { p, x: lerp(p.sx, p.tx, e), y: lerp(p.sy, p.ty, e) - jig, arrived };
+  });
+  const capY = 420;
+  let capDrawn = false;
+  for (const it of items) {
+    if (!capDrawn && it.p.ty > capY) { drawCaptain(W / 2, capY, t); capDrawn = true; }
+    const sc = 1.6 + (it.p.ty - 300) / 400;
+    drawCfPerson(it.x, it.y, it.p, sc, it.arrived, t);
+  }
+  if (!capDrawn) drawCaptain(W / 2, capY, t);
+  for (const it of items) {
+    if (it.p.sayT > 0 && it.p.say) drawBubble(it.x, it.y - 70, it.p.say, Math.min(1, it.p.sayT * 3), 14);
+  }
+
+  // 船長のセリフ
+  const capLine = t < 1.6 ? '訓練、無事終了です！' : t < 4.6 ? 'あっ、えっ…' : t < 7 ? '…全員、生きてます！' : '次回は小型ボートで来ます';
+  drawBubble(W / 2, capY - 88, capLine, 1, 18);
+
+  // 決めゼリフ
+  drawBigShout('殺す気か！', 230, 290, -0.12, 1.9, t);
+  drawBigShout('死ぬかと思った！', W - 250, 330, 0.1, 2.6, t);
+  ctx.restore();
+
+  // 注記
+  if (t > 4.8) {
+    ctx.globalAlpha = Math.min(1, (t - 4.8) * 2);
+    ctx.fillStyle = 'rgba(10,30,50,0.8)'; ctx.fillRect(0, H - 44, W, 44);
+    text('※この訓練による死者はゼロです。たんこぶは多数。', W / 2, H - 22, 17, '#fff', 'center', 800);
+    ctx.globalAlpha = 1;
+  }
+  if (t > 1) text('クリック / Enter で結果へ ▶', W - 16, 217, 14, '#1b2a3a', 'right', 800);
+}
+
+/* =========================================================
+   画面遷移
+   ========================================================= */
+const $ = id => document.getElementById(id);
+function setState(s) {
+  state = s;
+  $('title').classList.toggle('hidden', s !== 'title');
+  $('howto').classList.toggle('hidden', s !== 'howto');
+  $('result').classList.toggle('hidden', s !== 'result');
+  if (s === 'paused') Snd.engineSet(0);
+  if (s === 'ending') { Snd.end(); Snd.engineStop(); }
+}
+function toTitle() {
+  Snd.engineStop();
+  newWorld(true);
+  showBest();
+  setState('title');
+}
+function startGame() {
+  Snd.init();
+  document.activeElement && document.activeElement.blur();
+  newWorld(false);
+  setState('play');
+  Snd.horn();
+  Snd.engineStart();
+  const s = G.ship;
+  pop(s.x, s.y - 90, '訓練開始！', '#ffffff', 40, 1.6);
+  log('小型ボートを頼んだら「たすけぶね」が来た');
+  log('海難救助訓練、開始');
+}
+
+function judge(st) {
+  const r = st.rescued, m = st.meiwaku;
+  const ratio = m / Math.max(1, r);
+  if (r === 0 && m < 15) return ['称号：見学船', '何もしなかった。ある意味、いちばん静かな救助だった。'];
+  if (r === 0) return ['称号：純粋な災害', '助けに来たのか、壊しに来たのか。'];
+  if (st.selfRescued >= Math.max(3, r * 0.4)) return ['称号：マッチポンプ号', '自分で落として、自分で助けた。表彰状と請求書が同時に届きます。'];
+  if (ratio < 2.2 && r >= 8) return ['称号：奇跡の静音船', 'よく助けた。しかも静かだった。……本当にこの船か？'];
+  if (ratio < 4) return ['称号：善意の巨船', r >= 10 ? 'よく助けた。だが静かに来い。' : 'ありがとう。でも近づき方があるだろ。'];
+  if (ratio < 7) return ['称号：歩く二次災害', r >= 10 ? '救助率は高い。信用は低い。' : 'ありがとう。でも近づき方があるだろ。'];
+  return ['称号：善意の災害', r >= 8 ? '救助はした。周囲はめちゃくちゃになった。' : '助けた人数より、謝る相手のほうが多い。'];
+}
+function headline(st) {
+  const r = st.rescued;
+  const dmg = [
+    [st.shop, `海の家が${st.shop}回浸水`],
+    [st.capsized, `同時に${st.capsized}隻が転覆`],
+    [st.soaked, `海水浴客${st.soaked}名がずぶ濡れ`],
+    [st.bonks, `${st.bonks}名の頭にたんこぶ`],
+    [st.castles, `砂の城${st.castles}基が消滅`],
+    [st.vortex, `謎の渦${st.vortex}回発生`],
+    [st.beached, `救助船、砂浜に上陸`],
+  ].filter(d => d[0] > 0).sort((a, b) => b[0] - a[0]);
+  const main = r > 0 ? `海難救助訓練に超大型救助船、参加者ら${r}名を救助` : '海難救助訓練に超大型救助船、救助ゼロ';
+  const sub = (dmg.length ? dmg.slice(0, 2).map(d => d[1]).join('、') : '周囲は奇跡的に無傷') + '。死者なし';
+  const tail = st.selfRescued > 0 ? `（うち${st.selfRescued}名は同船が海に落とした一般人）` : '';
+  return `${main}${tail}<br><span style="font-size:15px">── ${sub}</span>`;
+}
+function voices(st) {
+  const v = [];
+  if (st.shop) v.push('海の家の店主：焼きそば、全部しょっぱくなった');
+  if (st.castles) v.push('砂の城の少年：もう海には来ない');
+  if (st.capsized) v.push('漁師：救助された。船を沈めた本人に');
+  if (st.bonks) v.push('救助された人：感謝はしてる。頭は痛い');
+  if (st.bofu) v.push('救助された人：浮き輪って、顔で受けるものだったんですね');
+  if (st.soaked) v.push('海水浴客：日焼けに来たのに、ずっと濡れてた');
+  if (st.vortex) v.push('海上保安庁：この海域で渦が出る記録はありません');
+  if (st.beached) v.push('近所の人：船が砂浜を歩いてた');
+  if (st.dragged) v.push('救助された人：生まれて初めて水上スキーをしました');
+  if (st.scoops >= 3) v.push('救助された人：そっと来られるなら、最初からそうしてほしい');
+  v.push('訓練担当者：小型ボートを1隻、頼んだはずでした');
+  if (st.rescued >= 5) v.push('溺れ役の参加者：今年の訓練がいちばん怖かった');
+  if (!v.length) v.push('通りすがり：でかい船が来て、帰っていった');
+  for (let i = v.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [v[i], v[j]] = [v[j], v[i]]; }
+  return v.slice(0, 3);
+}
+function countUp(el, to, dur = 900) {
+  const t0 = performance.now();
+  const step = now => {
+    const k = Math.min(1, (now - t0) / dur);
+    el.textContent = Math.round(to * (1 - (1 - k) ** 3));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function showResult() {
+  const st = G.stats;
+  const [title, comment] = judge(st);
+  $('headline').innerHTML = headline(st);
+  const d = new Date();
+  $('npDate').textContent = `${d.getMonth() + 1}月${d.getDate()}日`;
+  countUp($('rCount'), st.rescued);
+  countUp($('rMeiwaku'), st.meiwaku);
+  $('rTitle').textContent = title;
+  $('rComment').textContent = comment;
+  const rows = [
+    ['自分で落として救助', st.selfRescued, '名'], ['小突いた頭', st.bonks, '回'],
+    ['浮き輪の直撃', st.bofu, '回'], ['転覆させた船', st.capsized, '隻'],
+    ['ずぶ濡れにした人', st.soaked, '名'], ['さらった海水浴客', st.swept, '名'],
+    ['流した砂の城', st.castles, '基'], ['発生させた渦', st.vortex, '回'],
+    ['海の家の被害', st.shop, '回'], ['砂浜への上陸', st.beached, '回'],
+  ];
+  $('rBreakdown').innerHTML = rows.map(r => `<li><span>${r[0]}</span><b>${r[1]}${r[2]}</b></li>`).join('');
+  $('rVoices').innerHTML = voices(st).map(t => `<div>${t}</div>`).join('');
+  saveBest(st);
+  resultShownAt = performance.now();
+  setState('result');
+}
+function saveBest(st) {
+  try {
+    const b = JSON.parse(localStorage.getItem('tasukebune_best') || 'null');
+    if (!b || st.rescued > b.rescued || (st.rescued === b.rescued && st.meiwaku < b.meiwaku)) {
+      localStorage.setItem('tasukebune_best', JSON.stringify({ rescued: st.rescued, meiwaku: st.meiwaku }));
+    }
+  } catch (e) { /* 保存できなくても遊べる */ }
+}
+function showBest() {
+  try {
+    const b = JSON.parse(localStorage.getItem('tasukebune_best') || 'null');
+    $('bestLine').textContent = b ? `これまでの最多救助：${b.rescued}名（はた迷惑 ${b.meiwaku}）` : '';
+  } catch (e) { $('bestLine').textContent = ''; }
+}
+
+$('btnStart').onclick = startGame;
+$('btnStart2').onclick = startGame;
+$('btnHow').onclick = () => { Snd.init(); setState('howto'); };
+$('btnBack').onclick = () => setState('title');
+$('btnRetry').onclick = startGame;
+$('btnTitle').onclick = toTitle;
+
+/* =========================================================
+   メインループ
+   ========================================================= */
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  if (state === 'confront') updateConfront(dt);
+  else if (state !== 'paused' && state !== 'result') update(dt);
+  else if (state === 'result') { G.t += dt; updateFx(dt); }
+  drawWorld();
+  if (state === 'confront') drawConfront();
+  else if (!G.demo) drawHUD();
+  requestAnimationFrame(frame);
+}
+toTitle();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
