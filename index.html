@@ -1829,7 +1829,11 @@ function drawShip() {
   ctx.strokeStyle = '#8a95a3'; ctx.lineWidth = 2; ctx.strokeRect(-40, -34, 76, 68);
   ctx.fillStyle = '#2f4a66'; ctx.fillRect(30, -30, 6, 60);
   ctx.fillStyle = '#d8412f'; ctx.font = `bold 15px ${FONT}`;
-  ctx.fillText('たすけぶね', -2, 1);
+  // 船が左向きのときは文字を反転して、常に読める向きにする
+  ctx.save(); ctx.translate(-2, 1);
+  if (Math.cos(s.a) < 0) ctx.rotate(Math.PI);
+  ctx.fillText('たすけぶね', 0, 0);
+  ctx.restore();
   // レーダー
   ctx.strokeStyle = '#555'; ctx.lineWidth = 3;
   const ra = G.t * 3;
